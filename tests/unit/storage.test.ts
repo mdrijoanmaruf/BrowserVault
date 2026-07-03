@@ -28,12 +28,11 @@ const mockStorageLocal = {
   }),
 };
 
-// @ts-expect-error Mocking global object for tests
 global.chrome = {
   storage: {
     local: mockStorageLocal,
   },
-};
+} as unknown as typeof chrome;
 
 describe('Storage Layer', () => {
   beforeEach(() => {

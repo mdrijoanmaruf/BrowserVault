@@ -36,7 +36,7 @@ async function initializeState(): Promise<void> {
 // Message Routes
 // ─────────────────────────────────────────────────────────────
 
-/** Returns LockState, AuthState, and the maxAttempts setting */
+/** Returns LockState, AuthState, maxAttempts setting, and full settings */
 router.on('GET_STATE', async () => {
   const lockState = await getLockStatus();
   const authState =
@@ -46,7 +46,7 @@ router.on('GET_STATE', async () => {
     (await storage.getItem<UserSettings>(STORAGE_KEYS.SETTINGS)) ??
     DEFAULT_USER_SETTINGS;
 
-  return { lockState, authState, maxAttempts: settings.maxAttempts };
+  return { lockState, authState, maxAttempts: settings.maxAttempts, settings };
 });
 
 /** Locks the browser and broadcasts the overlay to all tabs */

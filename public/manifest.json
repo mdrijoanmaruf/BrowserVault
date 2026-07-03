@@ -10,8 +10,27 @@
     "storage",
     "idle",
     "tabs",
-    "notifications"
+    "notifications",
+    "alarms",
+    "history",
+    "declarativeNetRequest"
   ],
+  "commands": {
+    "_execute_action": {
+      "suggested_key": {
+        "default": "Ctrl+Shift+L",
+        "mac": "Command+Shift+L"
+      },
+      "description": "Open BrowserVault popup"
+    },
+    "panic-lock": {
+      "suggested_key": {
+        "default": "Ctrl+Shift+K",
+        "mac": "Command+Shift+K"
+      },
+      "description": "Lock browser immediately (Panic Lock)"
+    }
+  },
   "content_scripts": [
     {
       "matches": ["<all_urls>"],

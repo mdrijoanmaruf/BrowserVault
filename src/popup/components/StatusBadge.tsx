@@ -9,10 +9,10 @@ interface StatusBadgeProps {
 export function StatusBadge({ isLocked }: StatusBadgeProps) {
   return (
     <div className={`
-      inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-semibold
+      flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-semibold border uppercase tracking-wider
       ${isLocked
-        ? 'bg-red-500/15 text-red-400 border border-red-500/25'
-        : 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/25'}
+        ? 'bg-red-50 dark:bg-red-500/15 text-red-600 dark:text-red-400 border-red-200 dark:border-red-500/20'
+        : 'bg-emerald-50 dark:bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border-emerald-200 dark:border-emerald-500/20'}
     `}>
       {/* Pulsing dot */}
       <span className="relative flex h-2 w-2">

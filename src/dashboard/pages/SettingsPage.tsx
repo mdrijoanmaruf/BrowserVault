@@ -21,12 +21,12 @@ function SectionCard({ title, description, children }: {
   children: React.ReactNode;
 }) {
   return (
-    <div className="bg-white/[0.03] border border-white/[0.07] rounded-2xl overflow-hidden mb-6">
-      <div className="px-6 py-5 border-b border-white/[0.06]">
-        <h2 className="text-base font-semibold text-white">{title}</h2>
-        {description && <p className="text-sm text-white/40 mt-0.5">{description}</p>}
+    <div className="bg-white dark:bg-white/[0.03] border border-slate-200 dark:border-white/[0.07] rounded-2xl overflow-hidden mb-6 transition-colors duration-200">
+      <div className="px-6 py-5 border-b border-slate-200 dark:border-white/[0.06] transition-colors duration-200">
+        <h2 className="text-base font-semibold text-slate-900 dark:text-white">{title}</h2>
+        {description && <p className="text-sm text-slate-500 dark:text-white/40 mt-0.5">{description}</p>}
       </div>
-      <div className="divide-y divide-white/[0.05]">
+      <div className="divide-y divide-slate-100 dark:divide-white/[0.05] transition-colors duration-200">
         {children}
       </div>
     </div>
@@ -41,8 +41,8 @@ function SettingRow({ label, description, children }: {
   return (
     <div className="flex items-center justify-between gap-6 px-6 py-4">
       <div className="flex-1 min-w-0">
-        <p className="text-sm font-medium text-white/90">{label}</p>
-        {description && <p className="text-xs text-white/38 mt-0.5 leading-relaxed">{description}</p>}
+        <p className="text-sm font-medium text-slate-900 dark:text-white/90">{label}</p>
+        {description && <p className="text-xs text-slate-500 dark:text-white/38 mt-0.5 leading-relaxed">{description}</p>}
       </div>
       <div className="flex-shrink-0">{children}</div>
     </div>
@@ -59,7 +59,7 @@ function Toggle({ checked, onChange, id }: { checked: boolean; onChange: (v: boo
       onClick={() => onChange(!checked)}
       className={`
         relative inline-flex h-6 w-11 items-center rounded-full transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-violet-500/40
-        ${checked ? 'bg-violet-600' : 'bg-white/15'}
+        ${checked ? 'bg-violet-600' : 'bg-slate-300 dark:bg-white/15'}
       `}
     >
       <span className={`
@@ -81,10 +81,10 @@ function Select({ value, onChange, options, id }: {
       id={id}
       value={value}
       onChange={(e) => onChange(e.target.value)}
-      className="bg-white/[0.07] border border-white/15 text-white text-sm rounded-xl px-3 py-2 focus:outline-none focus:border-violet-400/50 focus:ring-1 focus:ring-violet-400/25 cursor-pointer transition-colors"
+      className="bg-white dark:bg-white/[0.07] border border-slate-300 dark:border-white/15 text-slate-900 dark:text-white text-sm rounded-xl px-3 py-2 focus:outline-none focus:border-violet-400 focus:ring-1 focus:ring-violet-400 cursor-pointer transition-colors"
     >
       {options.map((o) => (
-        <option key={o.value} value={o.value} className="bg-[#1a1030]">
+        <option key={o.value} value={o.value} className="bg-white dark:bg-[#1a1030] text-slate-900 dark:text-white">
           {o.label}
         </option>
       ))}
@@ -105,7 +105,7 @@ function NumberStepper({ value, min, max, onChange, id }: {
         type="button"
         onClick={() => onChange(Math.max(min, value - 1))}
         disabled={value <= min}
-        className="w-8 h-8 rounded-lg bg-white/[0.06] border border-white/10 text-white/70 hover:bg-white/10 disabled:opacity-30 disabled:cursor-not-allowed flex items-center justify-center text-lg leading-none transition-colors"
+        className="w-8 h-8 rounded-lg bg-slate-100 dark:bg-white/[0.06] border border-slate-300 dark:border-white/10 text-slate-700 dark:text-white/70 hover:bg-slate-200 dark:hover:bg-white/10 disabled:opacity-30 disabled:cursor-not-allowed flex items-center justify-center text-lg leading-none transition-colors"
       >
         −
       </button>
@@ -119,13 +119,13 @@ function NumberStepper({ value, min, max, onChange, id }: {
           const n = parseInt(e.target.value, 10);
           if (!isNaN(n)) onChange(Math.min(max, Math.max(min, n)));
         }}
-        className="w-14 text-center bg-white/[0.07] border border-white/15 text-white text-sm rounded-xl px-2 py-1.5 focus:outline-none focus:border-violet-400/50"
+        className="w-14 text-center bg-white dark:bg-white/[0.07] border border-slate-300 dark:border-white/15 text-slate-900 dark:text-white text-sm rounded-xl px-2 py-1.5 focus:outline-none focus:border-violet-400"
       />
       <button
         type="button"
         onClick={() => onChange(Math.min(max, value + 1))}
         disabled={value >= max}
-        className="w-8 h-8 rounded-lg bg-white/[0.06] border border-white/10 text-white/70 hover:bg-white/10 disabled:opacity-30 disabled:cursor-not-allowed flex items-center justify-center text-lg leading-none transition-colors"
+        className="w-8 h-8 rounded-lg bg-slate-100 dark:bg-white/[0.06] border border-slate-300 dark:border-white/10 text-slate-700 dark:text-white/70 hover:bg-slate-200 dark:hover:bg-white/10 disabled:opacity-30 disabled:cursor-not-allowed flex items-center justify-center text-lg leading-none transition-colors"
       >
         +
       </button>
@@ -142,8 +142,8 @@ function ActionButton({ onClick, variant = 'secondary', children, id }: {
   const base = 'px-4 py-2 rounded-xl text-sm font-medium transition-all duration-150 focus:outline-none focus:ring-2 focus:ring-offset-0';
   const variants = {
     primary: 'bg-violet-600 hover:bg-violet-500 text-white focus:ring-violet-500/40',
-    secondary: 'bg-white/[0.07] hover:bg-white/12 text-white/80 border border-white/10 focus:ring-white/20',
-    danger: 'bg-red-500/15 hover:bg-red-500/25 text-red-400 border border-red-500/20 focus:ring-red-500/30',
+    secondary: 'bg-slate-100 dark:bg-white/[0.07] hover:bg-slate-200 dark:hover:bg-white/12 text-slate-800 dark:text-white/80 border border-slate-300 dark:border-white/10 focus:ring-slate-300 dark:focus:ring-white/20',
+    danger: 'bg-red-50 dark:bg-red-500/15 hover:bg-red-100 dark:hover:bg-red-500/25 text-red-600 dark:text-red-400 border border-red-200 dark:border-red-500/20 focus:ring-red-500/30',
   };
   return (
     <button id={id} type="button" onClick={onClick} className={`${base} ${variants[variant]}`}>
@@ -162,8 +162,8 @@ function Toast({ message, type }: { message: string; type: 'success' | 'error' }
       fixed bottom-6 right-6 z-50 flex items-center gap-3 px-4 py-3 rounded-xl shadow-2xl
       border text-sm font-medium animate-[fadeInUp_0.3s_ease-out]
       ${type === 'success'
-        ? 'bg-emerald-500/15 border-emerald-500/25 text-emerald-300'
-        : 'bg-red-500/15 border-red-500/25 text-red-300'}
+        ? 'bg-emerald-50 dark:bg-emerald-500/15 border-emerald-200 dark:border-emerald-500/25 text-emerald-700 dark:text-emerald-300'
+        : 'bg-red-50 dark:bg-red-500/15 border-red-200 dark:border-red-500/25 text-red-700 dark:text-red-300'}
     `}>
       {type === 'success'
         ? <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7"/></svg>
@@ -390,11 +390,29 @@ export function SettingsPage() {
         </SettingRow>
       </SectionCard>
 
-      {/* ── Data (Day 16) ── */}
+      {/* ── Data (Days 16 & 20) ── */}
       <SectionCard
         title="Data"
         description="Export, import, or clear your BrowserVault data."
       >
+        <SettingRow
+          label="Log Retention"
+          description="How long to keep activity logs before automatically deleting them."
+        >
+          <Select
+            id="select-log-retention"
+            value={settings.logRetentionDays}
+            onChange={(v) => handleUpdate({ logRetentionDays: Number(v) })}
+            options={[
+              { value: 7, label: '7 days' },
+              { value: 14, label: '14 days' },
+              { value: 30, label: '30 days' },
+              { value: 90, label: '90 days' },
+              { value: 36500, label: 'Never delete' },
+            ]}
+          />
+        </SettingRow>
+
         <SettingRow
           label="Export Settings"
           description="Download your settings as a JSON file (password hash excluded)."

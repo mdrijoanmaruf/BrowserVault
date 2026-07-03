@@ -80,9 +80,9 @@ const NAV_ITEMS: NavItem[] = [
 
 export function Sidebar({ activePage, onNavigate }: SidebarProps) {
   return (
-    <aside className="w-60 flex-shrink-0 flex flex-col bg-white/[0.03] border-r border-white/[0.07] h-full">
+    <aside className="w-60 flex-shrink-0 flex flex-col bg-white dark:bg-white/[0.03] border-r border-slate-200 dark:border-white/[0.07] h-full transition-colors duration-200">
       {/* Logo */}
-      <div className="flex items-center gap-3 px-6 py-6 border-b border-white/[0.06]">
+      <div className="flex items-center gap-3 px-6 py-6 border-b border-slate-200 dark:border-white/[0.06] transition-colors duration-200">
         <div className="w-9 h-9 bg-gradient-to-br from-violet-500 to-purple-700 rounded-xl flex items-center justify-center shadow shadow-purple-900/50 flex-shrink-0">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
             <path d="M12 2L4 6V12C4 16.8 7.6 21.1 12 22.5C16.4 21.1 20 16.8 20 12V6L12 2Z" fill="white" fillOpacity="0.95"/>
@@ -90,8 +90,8 @@ export function Sidebar({ activePage, onNavigate }: SidebarProps) {
           </svg>
         </div>
         <div>
-          <p className="text-sm font-bold text-white leading-none">BrowserVault</p>
-          <p className="text-[10px] text-white/35 mt-0.5">Settings Dashboard</p>
+          <p className="text-sm font-bold text-slate-900 dark:text-white leading-none">BrowserVault</p>
+          <p className="text-[10px] text-slate-500 dark:text-white/35 mt-0.5">Settings Dashboard</p>
         </div>
       </div>
 
@@ -109,16 +109,16 @@ export function Sidebar({ activePage, onNavigate }: SidebarProps) {
                 w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium
                 transition-all duration-150 text-left group
                 ${isActive
-                  ? 'bg-violet-600/20 text-violet-300 border border-violet-500/25'
-                  : 'text-white/45 hover:text-white/80 hover:bg-white/[0.05] border border-transparent'}
+                  ? 'bg-violet-50 dark:bg-violet-600/20 text-violet-700 dark:text-violet-300 border border-violet-200 dark:border-violet-500/25'
+                  : 'text-slate-500 dark:text-white/45 hover:text-slate-900 dark:hover:text-white/80 hover:bg-slate-50 dark:hover:bg-white/[0.05] border border-transparent'}
               `}
             >
-              <span className={`flex-shrink-0 transition-colors ${isActive ? 'text-violet-400' : 'text-white/30 group-hover:text-white/60'}`}>
+              <span className={`flex-shrink-0 transition-colors ${isActive ? 'text-violet-600 dark:text-violet-400' : 'text-slate-400 dark:text-white/30 group-hover:text-violet-500 dark:group-hover:text-white/60'}`}>
                 {item.icon}
               </span>
               <span className="flex-1">{item.label}</span>
               {item.badge && (
-                <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-violet-500/20 text-violet-300 border border-violet-500/20 font-semibold">
+                <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-violet-100 dark:bg-violet-500/20 text-violet-700 dark:text-violet-300 border border-violet-200 dark:border-violet-500/20 font-semibold">
                   {item.badge}
                 </span>
               )}
@@ -128,8 +128,8 @@ export function Sidebar({ activePage, onNavigate }: SidebarProps) {
       </nav>
 
       {/* Footer */}
-      <div className="px-4 py-4 border-t border-white/[0.06]">
-        <p className="text-white/20 text-xs text-center font-mono">v1.0.0</p>
+      <div className="px-4 py-4 border-t border-slate-200 dark:border-white/[0.06] transition-colors duration-200">
+        <p className="text-slate-400 dark:text-white/20 text-xs text-center font-mono">v1.0.0</p>
       </div>
     </aside>
   );

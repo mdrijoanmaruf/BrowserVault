@@ -8,6 +8,7 @@ export interface UserSettings {
   customUrl?: string;
   clearHistoryOnLock: boolean;
   theme: 'light' | 'dark' | 'system';
+  logRetentionDays: number;
 }
 
 export interface AuthState {

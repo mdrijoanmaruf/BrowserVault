@@ -18,7 +18,7 @@ import type { UserSettings } from '@/types';
 // ─────────────────────────────────────────────────────────────
 
 let _watching = false;
-let _currentListener: ((state: chrome.idle.IdleState) => void) | null = null;
+let _currentListener: ((state: 'active' | 'idle' | 'locked') => void) | null = null;
 let _warnTimer: ReturnType<typeof setTimeout> | null = null;
 let _lockTimer: ReturnType<typeof setTimeout> | null = null;
 
@@ -59,7 +59,7 @@ export function startIdleWatcher(settings: IdleWatcherSettings): void {
   /** Seconds before lock to show the pre-lock warning notification */
   const WARN_LEAD_SECONDS = 30;
 
-  _currentListener = (idleState: chrome.idle.IdleState) => {
+  _currentListener = (idleState: 'active' | 'idle' | 'locked') => {
     console.log(`[BrowserVault] Idle state changed to: ${idleState}`);
 
     if (idleState === 'active') {

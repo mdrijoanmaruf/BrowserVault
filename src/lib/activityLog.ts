@@ -48,3 +48,21 @@ export async function getActivityLog(): Promise<ActivityLogEntry[]> {
 export async function clearActivityLog(): Promise<void> {
   await storage.setItem<ActivityLogEntry[]>(STORAGE_KEYS.ACTIVITY_LOG, []);
 }
+
+/**
+ * Prunes the activity log, removing entries older than the specified retention days.
+ */
+export async function pruneActivityLog(retentionDays: number): Promise<void> {
+  // If retentionDays is extremely large (e.g. 36500 for "Never"), skip pruning.
+  if (retentionDays >= 36500) return;
+
+  const existing = await getActivityLog();
+  if (existing.length === 0) return;
+
+  const cutoff = Date.now() - retentionDays * 24 * 60 * 60 * 1000;
+  const pruned = existing.filter((entry) => entry.timestamp >= cutoff);
+
+  if (pruned.length !== existing.length) {
+    await storage.setItem<ActivityLogEntry[]>(STORAGE_KEYS.ACTIVITY_LOG, pruned);
+  }
+}

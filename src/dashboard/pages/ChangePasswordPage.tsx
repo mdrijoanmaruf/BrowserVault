@@ -68,15 +68,15 @@ export function ChangePasswordPage() {
   }
 
   return (
-    <div className="bg-white/[0.03] border border-white/[0.07] rounded-2xl overflow-hidden max-w-xl">
-      <div className="px-6 py-5 border-b border-white/[0.06]">
-        <h2 className="text-base font-semibold text-white">Change Vault Password</h2>
-        <p className="text-sm text-white/40 mt-0.5">Update the password used to unlock your browser.</p>
+    <div className="bg-white dark:bg-white/[0.03] border border-slate-200 dark:border-white/[0.07] rounded-2xl overflow-hidden max-w-xl transition-colors duration-200">
+      <div className="px-6 py-5 border-b border-slate-200 dark:border-white/[0.06] transition-colors duration-200">
+        <h2 className="text-base font-semibold text-slate-900 dark:text-white">Change Vault Password</h2>
+        <p className="text-sm text-slate-500 dark:text-white/40 mt-0.5">Update the password used to unlock your browser.</p>
       </div>
       
       <form onSubmit={handleSubmit} className="p-6 space-y-4">
         <div>
-          <label className="block text-sm font-medium text-white/90 mb-1.5" htmlFor="current-pwd">
+          <label className="block text-sm font-medium text-slate-900 dark:text-white/90 mb-1.5" htmlFor="current-pwd">
             Current Password
           </label>
           <input
@@ -84,12 +84,12 @@ export function ChangePasswordPage() {
             type="password"
             value={currentPassword}
             onChange={(e) => setCurrentPassword(e.target.value)}
-            className="w-full bg-white/[0.07] border border-white/15 text-white text-sm rounded-xl px-4 py-2.5 focus:outline-none focus:border-violet-400/50"
+            className="w-full bg-white dark:bg-white/[0.07] border border-slate-300 dark:border-white/15 text-slate-900 dark:text-white text-sm rounded-xl px-4 py-2.5 focus:outline-none focus:border-violet-400 focus:ring-1 focus:ring-violet-400 transition-colors"
           />
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-white/90 mb-1.5" htmlFor="new-pwd">
+          <label className="block text-sm font-medium text-slate-900 dark:text-white/90 mb-1.5" htmlFor="new-pwd">
             New Password
           </label>
           <input
@@ -97,12 +97,12 @@ export function ChangePasswordPage() {
             type="password"
             value={newPassword}
             onChange={(e) => setNewPassword(e.target.value)}
-            className="w-full bg-white/[0.07] border border-white/15 text-white text-sm rounded-xl px-4 py-2.5 focus:outline-none focus:border-violet-400/50"
+            className="w-full bg-white dark:bg-white/[0.07] border border-slate-300 dark:border-white/15 text-slate-900 dark:text-white text-sm rounded-xl px-4 py-2.5 focus:outline-none focus:border-violet-400 focus:ring-1 focus:ring-violet-400 transition-colors"
           />
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-white/90 mb-1.5" htmlFor="confirm-pwd">
+          <label className="block text-sm font-medium text-slate-900 dark:text-white/90 mb-1.5" htmlFor="confirm-pwd">
             Confirm New Password
           </label>
           <input
@@ -110,12 +110,12 @@ export function ChangePasswordPage() {
             type="password"
             value={confirmPassword}
             onChange={(e) => setConfirmPassword(e.target.value)}
-            className="w-full bg-white/[0.07] border border-white/15 text-white text-sm rounded-xl px-4 py-2.5 focus:outline-none focus:border-violet-400/50"
+            className="w-full bg-white dark:bg-white/[0.07] border border-slate-300 dark:border-white/15 text-slate-900 dark:text-white text-sm rounded-xl px-4 py-2.5 focus:outline-none focus:border-violet-400 focus:ring-1 focus:ring-violet-400 transition-colors"
           />
         </div>
 
         {status && (
-          <div className={`p-3 rounded-xl text-sm ${status.type === 'error' ? 'bg-red-500/10 border border-red-500/20 text-red-400' : 'bg-emerald-500/10 border border-emerald-500/20 text-emerald-400'}`}>
+          <div className={`p-3 rounded-xl text-sm ${status.type === 'error' ? 'bg-red-50 dark:bg-red-500/10 border border-red-200 dark:border-red-500/20 text-red-700 dark:text-red-400' : 'bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-200 dark:border-emerald-500/20 text-emerald-700 dark:text-emerald-400'}`}>
             {status.msg}
           </div>
         )}

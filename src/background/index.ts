@@ -12,7 +12,7 @@ import { startIdleWatcher, stopIdleWatcher } from './idleWatcher';
 import { storage } from '@/lib/storage';
 import { STORAGE_KEYS, DEFAULT_USER_SETTINGS, DEFAULT_AUTH_STATE } from '@/lib/constants';
 import { generateSalt, hashPassword } from '@/lib/crypto';
-import { getActivityLog } from '@/lib/activityLog';
+import { getActivityLog, pruneActivityLog } from '@/lib/activityLog';
 import type { UserSettings, AuthState } from '@/types';
 
 // ─────────────────────────────────────────────────────────────
@@ -30,6 +30,7 @@ async function initializeState(): Promise<void> {
     DEFAULT_USER_SETTINGS;
 
   startIdleWatcher(settings);
+  await pruneActivityLog(settings.logRetentionDays);
 }
 
 // ─────────────────────────────────────────────────────────────

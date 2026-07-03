@@ -1,4 +1,4 @@
-import { UserSettings, LockState, AuthState } from '@/types';
+import { type UserSettings, type LockState, type AuthState } from '@/types';
 
 export const DEFAULT_USER_SETTINGS: UserSettings = {
   idleModeEnabled: false,
@@ -9,6 +9,7 @@ export const DEFAULT_USER_SETTINGS: UserSettings = {
   startState: 'history',
   clearHistoryOnLock: false,
   theme: 'system',
+  logRetentionDays: 30,
 };
 
 export const DEFAULT_LOCK_STATE: LockState = {

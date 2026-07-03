@@ -11,12 +11,12 @@ export function QuickMenu() {
   };
 
   return (
-    <div className="flex items-center justify-between pt-4 border-t border-white/[0.07]">
+    <div className="flex items-center justify-between pt-4 border-t border-slate-200 dark:border-white/[0.07] transition-colors duration-200">
       <button
         id="bv-settings-btn"
         type="button"
         onClick={openSettings}
-        className="flex items-center gap-2 text-white/40 hover:text-white/75 text-xs font-medium transition-colors duration-200 focus:outline-none"
+        className="flex items-center gap-2 text-slate-500 hover:text-slate-900 dark:text-white/40 dark:hover:text-white/75 text-xs font-medium transition-colors duration-200 focus:outline-none"
       >
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8}
@@ -26,7 +26,7 @@ export function QuickMenu() {
         Settings
       </button>
 
-      <span className="text-white/20 text-xs font-mono">v1.0.0</span>
+      <span className="text-slate-400 dark:text-white/20 text-xs font-mono">v1.0.0</span>
     </div>
   );
 }

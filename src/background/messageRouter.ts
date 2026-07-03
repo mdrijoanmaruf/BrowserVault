@@ -18,7 +18,7 @@ export class MessageRouter {
    * Listens to chrome.runtime.onMessage and routes accordingly
    */
   listen() {
-    chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+    chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
       if (message && message.action) {
         const handler = this.handlers.get(message.action);
         if (handler) {

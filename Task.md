@@ -270,6 +270,13 @@ browservault/
 
 ### **PHASE 6: Dashboard Polish & Activity Log (Days 19–20)**
 
+- [x] **Day 19: UI Theming (Light/Dark Mode)**
+  - Use `tailwindcss` `dark:` variants mapped to the `theme` setting.
+  - Implement a `ThemeProvider` context to wrap the dashboard.
+- [x] **Day 20: Activity Log UI**
+  - Build `ActivityLogPage.tsx` with filtering and pagination.
+  - Add `logRetentionDays` to settings; implement `pruneActivityLog()`.
+
 #### **Day 19 — Theme, Import/Export**
 
 - Implement Dark/Light theme toggle using Tailwind `dark:` class strategy + `AppContext.tsx` for theme state

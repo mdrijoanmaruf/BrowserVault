@@ -118,67 +118,55 @@ function EyeOnIcon() {
   );
 }
 
-interface PasswordFieldProps {
-  id: string;
-  value: string;
-  onChange: (v: string) => void;
-  onKeyEnter: () => void;
-  placeholder: string;
-  showPassword: boolean;
-  onToggleShow: () => void;
-  autoFocus?: boolean;
-  disabled?: boolean;
-}
-
-function PasswordField({ id, value, onChange, onKeyEnter, placeholder, showPassword, onToggleShow, autoFocus, disabled }: PasswordFieldProps) {
+export function PasswordField({
+  id, value, onChange, onKeyEnter, placeholder, showPassword, onToggleShow, autoFocus, styleVars
+}: {
+  id: string; value: string; onChange: (v: string) => void; onKeyEnter: () => void;
+  placeholder: string; showPassword: boolean; onToggleShow: () => void; autoFocus?: boolean;
+  styleVars?: any;
+}) {
   return (
-    <div style={{ position: 'relative', marginBottom: 12 }}>
-      <input
-        id={id}
-        className="bv-input"
-        type={showPassword ? 'text' : 'password'}
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        onKeyDown={(e) => { if (e.key === 'Enter') onKeyEnter(); }}
-        placeholder={placeholder}
-        autoFocus={autoFocus}
-        disabled={disabled}
-        autoComplete={id === 'bv-password' ? 'current-password' : 'new-password'}
-        style={{
-          width: '100%', boxSizing: 'border-box',
-          background: 'rgba(255,255,255,0.07)',
-          border: '1px solid rgba(255,255,255,0.13)',
-          borderRadius: 12, padding: '12px 44px 12px 16px',
-          color: 'white', fontSize: 14, transition: 'border-color 0.2s, box-shadow 0.2s',
-        }}
-      />
-      <button type="button" className="bv-eye" onClick={onToggleShow} tabIndex={-1} disabled={disabled}
-        style={{
-          position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)',
-          background: 'none', border: 'none', cursor: disabled ? 'not-allowed' : 'pointer',
-          color: 'rgba(255,255,255,0.35)', padding: 4,
-          display: 'flex', alignItems: 'center', transition: 'color 0.2s',
-        }}
-      >
-        {showPassword ? <EyeOffIcon /> : <EyeOnIcon />}
-      </button>
-    </div>
-  );
-}
-
-function ShieldIcon() {
-  return (
-    <div style={{
-      width: 56, height: 56,
-      background: 'linear-gradient(135deg, #7c3aed 0%, #5b21b6 100%)',
-      borderRadius: 18,
-      display: 'flex', alignItems: 'center', justifyContent: 'center',
-      boxShadow: '0 8px 24px rgba(124, 58, 237, 0.45), 0 0 0 1px rgba(167,139,250,0.15) inset',
-    }}>
-      <svg width="28" height="28" viewBox="0 0 24 24" fill="none">
-        <path d="M12 2L4 6V12C4 16.8 7.6 21.1 12 22.5C16.4 21.1 20 16.8 20 12V6L12 2Z" fill="white" fillOpacity="0.95"/>
-        <path d="M9 12.5L11 14.5L15 10.5" stroke="rgba(109,40,217,0.9)" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" fill="none"/>
-      </svg>
+    <div style={{ marginBottom: 16, ...styleVars }}>
+      <div style={{
+        display: 'flex', alignItems: 'center',
+        background: 'var(--input-bg, rgba(255, 255, 255, 0.05))',
+        border: '1px solid var(--input-border, rgba(255, 255, 255, 0.15))',
+        borderRadius: 12,
+        padding: '0 16px',
+        height: 48,
+        transition: 'all 0.2s',
+        color: 'var(--text-main, white)',
+      }}>
+        <input
+          id={id}
+          type={showPassword ? 'text' : 'password'}
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          onKeyDown={(e) => { if (e.key === 'Enter') onKeyEnter(); }}
+          placeholder={placeholder}
+          autoFocus={autoFocus}
+          autoComplete={id === 'bv-password' ? 'current-password' : 'new-password'}
+          style={{
+            background: 'transparent',
+            border: 'none',
+            outline: 'none',
+            width: '100%',
+            color: 'inherit',
+            fontSize: 14,
+          }}
+        />
+        <button
+          type="button"
+          onClick={onToggleShow}
+          style={{
+            background: 'transparent', border: 'none', outline: 'none',
+            padding: 4, cursor: 'pointer', color: 'inherit',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+          }}
+        >
+          {showPassword ? <EyeOffIcon /> : <EyeOnIcon />}
+        </button>
+      </div>
     </div>
   );
 }
@@ -194,9 +182,7 @@ function CooldownRing({ remainingMs, totalMs }: { remainingMs: number; totalMs: 
     <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 20 }}>
       <div style={{ position: 'relative', width: 96, height: 96 }}>
         <svg width="96" height="96" viewBox="0 0 96 96" style={{ transform: 'rotate(-90deg)' }}>
-          {/* Background ring */}
           <circle cx="48" cy="48" r={radius} fill="none" stroke="rgba(255,255,255,0.08)" strokeWidth="6"/>
-          {/* Progress ring */}
           <circle
             cx="48" cy="48" r={radius} fill="none"
             stroke="url(#bvCooldownGradient)"
@@ -213,7 +199,6 @@ function CooldownRing({ remainingMs, totalMs }: { remainingMs: number; totalMs: 
             </linearGradient>
           </defs>
         </svg>
-        {/* Time text in center */}
         <div style={{
           position: 'absolute', inset: 0,
           display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
@@ -242,16 +227,15 @@ export function LockScreen({ onHide }: LockScreenProps) {
   const [isShaking, setIsShaking] = useState(false);
   const [time, setTime] = useState(new Date());
 
-  // Day 12: attempts remaining
   const [maxAttempts, setMaxAttempts] = useState(5);
   const [remainingAttempts, setRemainingAttempts] = useState<number | null>(null);
 
-  // Day 13: cooldown state
   const [cooldownExpiresAt, setCooldownExpiresAt] = useState<number | null>(null);
   const [cooldownRemainingMs, setCooldownRemainingMs] = useState(0);
   const COOLDOWN_TOTAL_MS = 5 * 60 * 1000;
 
-  // Check state on mount
+  const [theme, setTheme] = useState<'light' | 'dark'>('dark');
+
   useEffect(() => {
     (async () => {
       try {
@@ -261,10 +245,21 @@ export function LockScreen({ onHide }: LockScreenProps) {
               authState?: { hasPassword?: boolean };
               lockState?: { cooldownExpiresAt?: number | null; failedAttemptCount?: number };
               maxAttempts?: number;
+              settings?: { theme?: 'light' | 'dark' | 'system' };
             }
           } | undefined;
 
         const data = response?.data;
+
+        if (data?.settings?.theme) {
+          const t = data.settings.theme;
+          if (t === 'system') {
+            const isDark = typeof window !== 'undefined' && window.matchMedia('(prefers-color-scheme: dark)').matches;
+            setTheme(isDark ? 'dark' : 'light');
+          } else {
+            setTheme(t);
+          }
+        }
 
         if (data?.authState?.hasPassword === false) {
           setMode('setup');
@@ -277,7 +272,6 @@ export function LockScreen({ onHide }: LockScreenProps) {
           setRemainingAttempts(data.maxAttempts - failed);
         }
 
-        // Check for active cooldown
         const expiresAt = data?.lockState?.cooldownExpiresAt;
         if (expiresAt && Date.now() < expiresAt) {
           setCooldownExpiresAt(expiresAt);
@@ -290,13 +284,11 @@ export function LockScreen({ onHide }: LockScreenProps) {
     })();
   }, []);
 
-  // Live clock
   useEffect(() => {
     const id = setInterval(() => setTime(new Date()), 1000);
     return () => clearInterval(id);
   }, []);
 
-  // Cooldown countdown ticker
   useEffect(() => {
     if (mode !== 'cooldown' || cooldownExpiresAt === null) return;
 
@@ -353,12 +345,10 @@ export function LockScreen({ onHide }: LockScreenProps) {
       } else if (data?.noPasswordSet) {
         setMode('setup');
       } else if (data?.cooldownActive && data.cooldownExpiresAt) {
-        // Max attempts hit — enter cooldown mode (Day 13)
         setCooldownExpiresAt(data.cooldownExpiresAt);
         setCooldownRemainingMs(data.cooldownExpiresAt - Date.now());
         setMode('cooldown');
       } else {
-        // Wrong password — show remaining attempts (Day 12)
         const remaining = data?.remainingAttempts ?? null;
         setRemainingAttempts(remaining);
         const msg = remaining !== null && remaining > 0
@@ -410,7 +400,6 @@ export function LockScreen({ onHide }: LockScreenProps) {
     }
   }, [password, confirmPassword, onHide, triggerShake]);
 
-  // Format clock
   const hours = time.getHours().toString().padStart(2, '0');
   const minutes = time.getMinutes().toString().padStart(2, '0');
   const seconds = time.getSeconds().toString().padStart(2, '0');
@@ -430,6 +419,20 @@ export function LockScreen({ onHide }: LockScreenProps) {
 
   const submitHandler = mode === 'setup' ? handleSetup : handleUnlock;
 
+  const isLight = theme === 'light';
+  const c = {
+    bg: isLight ? 'linear-gradient(145deg, #f8fafc 0%, #e2e8f0 45%, #f8fafc 100%)' : 'linear-gradient(145deg, #0d0b1e 0%, #130828 45%, #0d0b1e 100%)',
+    bgCooldown: isLight ? 'linear-gradient(145deg, #fef2f2 0%, #fee2e2 45%, #fef2f2 100%)' : 'linear-gradient(145deg, #1a0a0a 0%, #200d0d 45%, #1a0a0a 100%)',
+    textMain: isLight ? '#0f172a' : 'white',
+    textMuted: isLight ? 'rgba(15, 23, 42, 0.45)' : 'rgba(255,255,255,0.45)',
+    textSubtle: isLight ? 'rgba(15, 23, 42, 0.6)' : 'rgba(255,255,255,0.6)',
+    glassBg: isLight ? 'rgba(255, 255, 255, 0.7)' : 'rgba(255, 255, 255, 0.04)',
+    glassBorder: isLight ? 'rgba(15, 23, 42, 0.08)' : 'rgba(255, 255, 255, 0.08)',
+    inputBg: isLight ? 'rgba(255, 255, 255, 0.9)' : 'rgba(255, 255, 255, 0.05)',
+    inputBorder: isLight ? 'rgba(15, 23, 42, 0.15)' : 'rgba(255, 255, 255, 0.15)',
+    iconBg: isLight ? 'linear-gradient(135deg, #8b5cf6, #c084fc)' : 'linear-gradient(135deg, #8b5cf6, #c084fc)',
+  };
+
   return (
     <>
       <style>{KEYFRAMES}</style>
@@ -439,85 +442,57 @@ export function LockScreen({ onHide }: LockScreenProps) {
         display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
         fontFamily: "'Inter', system-ui, -apple-system, BlinkMacSystemFont, sans-serif",
         overflow: 'hidden',
+        background: mode === 'cooldown' ? c.bgCooldown : c.bg,
       }}>
-        {/* Background gradient */}
-        <div style={{
-          position: 'absolute', inset: 0,
-          background: mode === 'cooldown'
-            ? 'linear-gradient(145deg, #1a0a0a 0%, #200d0d 45%, #1a0a0a 100%)'
-            : 'linear-gradient(145deg, #0d0b1e 0%, #130828 45%, #0d0b1e 100%)',
-        }} />
-
-        {/* Blobs */}
-        <div className="bv-blob-1" style={{
-          position: 'absolute', top: '15%', left: '10%',
-          width: 520, height: 520, borderRadius: '50%', filter: 'blur(80px)',
-          background: mode === 'cooldown'
-            ? 'radial-gradient(circle, rgba(239,68,68,0.3) 0%, transparent 70%)'
-            : 'radial-gradient(circle, rgba(124,58,237,0.4) 0%, transparent 70%)',
-        }} />
-        <div className="bv-blob-2" style={{
-          position: 'absolute', bottom: '10%', right: '8%',
-          width: 440, height: 440, borderRadius: '50%', filter: 'blur(80px)',
-          background: mode === 'cooldown'
-            ? 'radial-gradient(circle, rgba(249,115,22,0.25) 0%, transparent 70%)'
-            : 'radial-gradient(circle, rgba(99,102,241,0.35) 0%, transparent 70%)',
-        }} />
-
         {/* Content */}
         <div style={{ position: 'relative', zIndex: 1, width: '100%', maxWidth: 420, padding: '0 24px', textAlign: 'center' }}>
           {/* Clock */}
           <div style={{ marginBottom: 32 }}>
             <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'center' }}>
-              <span style={{ fontSize: 80, fontWeight: 200, color: 'white', letterSpacing: '-3px', lineHeight: 1 }}>
+              <span style={{ fontSize: 80, fontWeight: 200, color: c.textMain, letterSpacing: '-3px', lineHeight: 1 }}>
                 {hours}:{minutes}
               </span>
-              <span style={{ fontSize: 36, fontWeight: 200, color: 'rgba(255,255,255,0.45)', marginLeft: 6, letterSpacing: '-1px' }}>
+              <span style={{ fontSize: 36, fontWeight: 200, color: c.textMuted, marginLeft: 6, letterSpacing: '-1px' }}>
                 {seconds}
               </span>
             </div>
-            <div style={{ color: 'rgba(255,255,255,0.4)', fontSize: 13, marginTop: 6, letterSpacing: '0.02em' }}>
+            <div style={{ color: c.textSubtle, fontSize: 13, marginTop: 6, letterSpacing: '0.02em' }}>
               {dateStr}
             </div>
           </div>
 
           {/* Card */}
           <div className={`bv-card-enter${isShaking ? ' bv-shake' : ''}`} style={{
-            background: 'rgba(255,255,255,0.04)',
+            background: c.glassBg,
             backdropFilter: 'blur(40px)',
             WebkitBackdropFilter: 'blur(40px)',
-            border: mode === 'cooldown' ? '1px solid rgba(239,68,68,0.15)' : '1px solid rgba(255,255,255,0.08)',
+            border: `1px solid ${c.glassBorder}`,
             borderRadius: 24,
             padding: 32,
             boxShadow: '0 32px 64px rgba(0,0,0,0.6), 0 0 0 1px rgba(255,255,255,0.03) inset',
           }}>
             {/* Logo */}
             <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 16 }}>
-              {mode === 'cooldown' ? (
-                <div style={{
-                  width: 56, height: 56,
-                  background: 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)',
-                  borderRadius: 18, display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  boxShadow: '0 8px 24px rgba(239,68,68,0.4)',
-                }}>
-                  <svg width="28" height="28" viewBox="0 0 24 24" fill="none">
-                    <path d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z"
-                      stroke="white" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round"/>
-                  </svg>
-                </div>
-              ) : (
-                <ShieldIcon />
-              )}
+              <div style={{
+                width: 56, height: 56,
+                background: c.iconBg,
+                borderRadius: 18, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                boxShadow: '0 8px 24px rgba(124, 58, 237, 0.45)',
+              }}>
+                <svg width="28" height="28" viewBox="0 0 24 24" fill="none">
+                  <path d="M12 2L4 6V12C4 16.8 7.6 21.1 12 22.5C16.4 21.1 20 16.8 20 12V6L12 2Z" fill="white" />
+                </svg>
+              </div>
             </div>
 
-            <h1 style={{ color: 'white', fontSize: 18, fontWeight: 700, margin: '0 0 6px', letterSpacing: '-0.3px' }}>
+            <h1 style={{ color: c.textMain, fontSize: 18, fontWeight: 700, margin: '0 0 6px', letterSpacing: '-0.3px' }}>
               {modeTitle}
             </h1>
-            <p style={{ color: 'rgba(255,255,255,0.42)', fontSize: 13, margin: '0 0 24px', lineHeight: 1.5 }}>
+            <p style={{ color: c.textSubtle, fontSize: 13, margin: '0 0 24px', lineHeight: 1.5 }}>
               {modeSubtitle}
             </p>
 
-            {/* ── Cooldown mode (Day 13) ── */}
+            {/* ── Cooldown mode ── */}
             {mode === 'cooldown' && (
               <>
                 <CooldownRing remainingMs={cooldownRemainingMs} totalMs={COOLDOWN_TOTAL_MS} />
@@ -525,7 +500,7 @@ export function LockScreen({ onHide }: LockScreenProps) {
                   background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.18)',
                   borderRadius: 12, padding: '12px 16px',
                 }}>
-                  <p style={{ color: 'rgba(255,255,255,0.6)', fontSize: 12, margin: 0, lineHeight: 1.6 }}>
+                  <p style={{ color: c.textMuted, fontSize: 12, margin: 0, lineHeight: 1.6 }}>
                     Too many failed attempts. Password entry is temporarily disabled to protect your data.
                     You can try again in <strong style={{ color: '#fca5a5' }}>{formatSeconds(cooldownRemainingMs)}</strong>.
                   </p>
@@ -545,6 +520,7 @@ export function LockScreen({ onHide }: LockScreenProps) {
                   showPassword={showPassword}
                   onToggleShow={() => setShowPassword((v) => !v)}
                   autoFocus
+                  styleVars={{ '--input-bg': c.inputBg, '--input-border': c.inputBorder, '--text-main': c.textMain }}
                 />
 
                 {mode === 'setup' && (
@@ -552,20 +528,20 @@ export function LockScreen({ onHide }: LockScreenProps) {
                     id="bv-confirm-password"
                     value={confirmPassword}
                     onChange={(v) => { setConfirmPassword(v); clearError(); }}
-                    onKeyEnter={handleSetup}
-                    placeholder="Confirm new password"
+                    onKeyEnter={submitHandler}
+                    placeholder="Confirm password"
                     showPassword={showPassword}
                     onToggleShow={() => setShowPassword((v) => !v)}
+                    styleVars={{ '--input-bg': c.inputBg, '--input-border': c.inputBorder, '--text-main': c.textMain }}
                   />
                 )}
 
-                {/* Attempts remaining indicator (Day 12) */}
+                {/* Attempts remaining indicator */}
                 {mode === 'unlock' && remainingAttempts !== null && remainingAttempts < maxAttempts && (
                   <div style={{
                     display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
                     marginBottom: 10,
                   }}>
-                    {/* Pip indicators */}
                     <div style={{ display: 'flex', gap: 4 }}>
                       {Array.from({ length: maxAttempts }).map((_, i) => (
                         <div key={i} style={{
@@ -573,12 +549,11 @@ export function LockScreen({ onHide }: LockScreenProps) {
                           background: i < remainingAttempts
                             ? (remainingAttempts <= 1 ? '#ef4444' : remainingAttempts <= 2 ? '#f97316' : '#a78bfa')
                             : 'rgba(255,255,255,0.15)',
-                          transition: 'background 0.3s',
                         }} />
                       ))}
                     </div>
                     <span style={{
-                      color: remainingAttempts <= 1 ? '#fca5a5' : remainingAttempts <= 2 ? '#fdba74' : 'rgba(255,255,255,0.4)',
+                      color: remainingAttempts <= 1 ? '#fca5a5' : remainingAttempts <= 2 ? '#fdba74' : c.textSubtle,
                       fontSize: 11,
                     }}>
                       {remainingAttempts} attempt{remainingAttempts !== 1 ? 's' : ''} remaining

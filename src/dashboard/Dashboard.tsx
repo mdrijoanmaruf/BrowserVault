@@ -12,6 +12,7 @@ import { SettingsPage } from './pages/SettingsPage';
 import { ChangePasswordPage } from './pages/ChangePasswordPage';
 import { ChangeEmailPage } from './pages/ChangeEmailPage';
 import { AdvancedPage } from './pages/AdvancedPage';
+import { ActivityLogPage } from './pages/ActivityLogPage';
 
 export function Dashboard() {
   const [activePage, setActivePage] = useState<DashboardPage>('settings');
@@ -45,16 +46,7 @@ export function Dashboard() {
       case 'change-password': return <ChangePasswordPage />;
       case 'change-email': return <ChangeEmailPage />;
       case 'advanced': return <AdvancedPage />;
-      case 'activity-log': 
-        return (
-          <div className="flex flex-col items-center justify-center py-20 text-center border border-white/5 bg-white/[0.02] rounded-2xl border-dashed">
-            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" className="text-white/20 mb-4">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z"/>
-            </svg>
-            <h3 className="text-white/80 font-medium mb-1">Activity Log</h3>
-            <p className="text-white/40 text-sm">Coming in Phase 6.</p>
-          </div>
-        );
+      case 'activity-log': return <ActivityLogPage />;
       default: return <SettingsPage />;
     }
   };

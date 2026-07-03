@@ -54,9 +54,9 @@ export function Popup() {
   const isLocked = state?.lockState?.isLocked ?? false;
 
   return (
-    <div className="min-h-[220px] bg-gradient-to-b from-[#0f0b22] to-[#130d2a] text-white flex flex-col">
+    <div className="min-h-[220px] bg-slate-50 dark:bg-gradient-to-b dark:from-[#0f0b22] dark:to-[#130d2a] text-slate-900 dark:text-white flex flex-col transition-colors duration-200">
       {/* ── Header ── */}
-      <div className="flex items-center justify-between px-5 pt-5 pb-4 border-b border-white/[0.06]">
+      <div className="flex items-center justify-between px-5 pt-5 pb-4 border-b border-slate-200 dark:border-white/[0.06] transition-colors duration-200">
         <div className="flex items-center gap-3">
           {/* Shield logo */}
           <div className="w-8 h-8 bg-gradient-to-br from-violet-500 to-purple-700 rounded-lg flex items-center justify-center shadow shadow-purple-900/60 flex-shrink-0">
@@ -66,8 +66,8 @@ export function Popup() {
             </svg>
           </div>
           <div>
-            <h1 className="text-sm font-bold text-white leading-none">BrowserVault</h1>
-            <p className="text-[10px] text-white/35 mt-0.5">Browser security</p>
+            <h1 className="text-sm font-bold text-slate-900 dark:text-white leading-none">BrowserVault</h1>
+            <p className="text-[10px] text-slate-500 dark:text-white/35 mt-0.5">Browser security</p>
           </div>
         </div>
         {/* Status badge */}
@@ -78,16 +78,16 @@ export function Popup() {
       <div className="flex-1 px-5 py-5 flex flex-col gap-4">
         {/* Error */}
         {error && (
-          <div className="bg-red-500/10 border border-red-500/20 rounded-xl px-4 py-3">
-            <p className="text-red-400 text-xs">{error}</p>
+          <div className="bg-red-50 dark:bg-red-500/10 border border-red-200 dark:border-red-500/20 rounded-xl px-4 py-3">
+            <p className="text-red-700 dark:text-red-400 text-xs">{error}</p>
           </div>
         )}
 
         {/* Loading skeleton */}
         {!state && !error && (
           <div className="flex flex-col gap-3 animate-pulse">
-            <div className="h-14 bg-white/5 rounded-2xl" />
-            <div className="h-8 bg-white/[0.03] rounded-xl" />
+            <div className="h-14 bg-slate-200 dark:bg-white/5 rounded-2xl" />
+            <div className="h-8 bg-slate-100 dark:bg-white/[0.03] rounded-xl" />
           </div>
         )}
 
@@ -102,12 +102,12 @@ export function Popup() {
 
         {/* Idle info strip */}
         {state && !isLocked && (
-          <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-white/[0.03] border border-white/[0.05]">
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" className="text-white/25 flex-shrink-0">
+          <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-slate-100 dark:bg-white/[0.03] border border-slate-200 dark:border-white/[0.05] transition-colors duration-200">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" className="text-slate-400 dark:text-white/25 flex-shrink-0">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8}
                 d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z"/>
             </svg>
-            <span className="text-white/30 text-[11px]">Idle lock is managed via Settings</span>
+            <span className="text-slate-500 dark:text-white/30 text-[11px]">Idle lock is managed via Settings</span>
           </div>
         )}
       </div>

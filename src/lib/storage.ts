@@ -1,6 +1,10 @@
 export const storage = {
   async getItem<T>(key: string, defaultValue?: T): Promise<T | null> {
-    if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
+    if (
+      typeof chrome !== 'undefined' &&
+      chrome.storage &&
+      chrome.storage.local
+    ) {
       return new Promise((resolve) => {
         chrome.storage.local.get([key], (result) => {
           if (result[key] !== undefined) {
@@ -17,7 +21,11 @@ export const storage = {
   },
 
   async setItem<T>(key: string, value: T): Promise<void> {
-    if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
+    if (
+      typeof chrome !== 'undefined' &&
+      chrome.storage &&
+      chrome.storage.local
+    ) {
       return new Promise((resolve) => {
         chrome.storage.local.set({ [key]: value }, () => {
           resolve();
@@ -29,7 +37,11 @@ export const storage = {
   },
 
   async removeItem(key: string): Promise<void> {
-    if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
+    if (
+      typeof chrome !== 'undefined' &&
+      chrome.storage &&
+      chrome.storage.local
+    ) {
       return new Promise((resolve) => {
         chrome.storage.local.remove(key, () => {
           resolve();

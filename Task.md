@@ -103,6 +103,7 @@ browservault/
 ### **PHASE 1: Setup & Foundation (Days 1–4)**
 
 #### **Day 1 — Project Initialization**
+
 - Create project with `npm create vite@latest browservault -- --template react-ts`
 - Install and configure Tailwind CSS (`tailwind.config.js`, `postcss.config.js`, add directives to `globals.css`)
 - Install `@crxjs/vite-plugin` and configure `vite.config.ts` for Manifest V3 output
@@ -111,6 +112,7 @@ browservault/
 - **Deliverable:** Extension loads as "unpacked" in Chrome with a blank popup
 
 #### **Day 2 — Tooling & Code Quality Setup**
+
 - Configure ESLint + Prettier with TypeScript rules
 - Set up path aliases (`@/components`, `@/lib`, etc.) in `tsconfig.json` and `vite.config.ts`
 - Install testing tools: Vitest for unit tests, Playwright (or Puppeteer) for e2e extension testing
@@ -119,6 +121,7 @@ browservault/
 - **Deliverable:** Clean dev environment with linting, formatting, and test runner working
 
 #### **Day 3 — Type Definitions & Storage Layer**
+
 - Define core TypeScript types in `types/index.ts`: `UserSettings`, `AuthState`, `ActivityLogEntry`, `LockState`, `ProfileConfig`
 - Build `storage.ts`: typed wrapper functions `getItem<T>()`, `setItem<T>()`, `removeItem()` around `chrome.storage.local`
 - Add default settings object (fallback values for first install)
@@ -126,6 +129,7 @@ browservault/
 - **Deliverable:** Fully typed, tested storage utility ready for use across the app
 
 #### **Day 4 — Cryptography Utilities**
+
 - Build `crypto.ts` using Web Crypto API (`SubtleCrypto`):
   - `hashPassword(password, salt)` using PBKDF2 or SHA-256 with salt
   - `generateSalt()`
@@ -139,6 +143,7 @@ browservault/
 ### **PHASE 2: Background Engine & Messaging (Days 5–7)**
 
 #### **Day 5 — Service Worker Skeleton**
+
 - Set up `background/index.ts` as the Manifest V3 service worker entry
 - Implement `messageRouter.ts`: central handler for `chrome.runtime.onMessage` (action-based routing, e.g. `LOCK_BROWSER`, `UNLOCK_BROWSER`, `GET_STATE`)
 - Implement basic in-memory + persisted lock state (`isLocked: boolean`) synced with storage
@@ -146,6 +151,7 @@ browservault/
 - **Deliverable:** Working message-passing architecture between background, popup, and content scripts
 
 #### **Day 6 — Lock Controller Logic**
+
 - Build `lockController.ts`: core functions `lockBrowser()`, `unlockBrowser()`, `getLockStatus()`
 - On `lockBrowser()`: broadcast message to all open tabs to inject the lock overlay
 - On `unlockBrowser()`: verify password via `crypto.ts`, then broadcast "remove overlay" message
@@ -153,6 +159,7 @@ browservault/
 - **Deliverable:** Core lock/unlock logic working end-to-end via console-triggered messages
 
 #### **Day 7 — Idle Detection Engine**
+
 - Build `idleWatcher.ts` using `chrome.idle.onStateChanged` and `chrome.idle.setDetectionInterval()`
 - Connect idle detection to settings (`idleModeEnabled`, `idleDurationMinutes`)
 - When idle threshold is reached and idle mode is on, trigger `lockController.lockBrowser()`
@@ -164,6 +171,7 @@ browservault/
 ### **PHASE 3: Lock Screen & Popup (Days 8–11)**
 
 #### **Day 8 — Lock Screen UI Component**
+
 - Build `LockScreen.tsx`: full-screen overlay with centered card, password input, unlock button, app logo
 - Style with Tailwind: backdrop blur, dark overlay, smooth fade-in animation
 - Add "Forgot Password?" link on the lock screen (routes to recovery flow)
@@ -171,12 +179,14 @@ browservault/
 - **Deliverable:** Standalone, styled lock screen component (Storybook-style isolated preview)
 
 #### **Day 9 — Content Script Injection**
+
 - Build `content/index.ts` and `lockOverlay.tsx` to mount the `LockScreen` React component into any active tab via a Shadow DOM (to avoid CSS conflicts with host page)
 - Wire content script to listen for `SHOW_LOCK_OVERLAY` / `HIDE_LOCK_OVERLAY` messages from background
 - Test injection across multiple tab types (regular pages, `chrome://` restrictions handling)
 - **Deliverable:** Lock screen correctly overlays any active browser tab on command
 
 #### **Day 10 — Password Verification & First-Time Setup**
+
 - Build first-time setup flow: if no password exists in storage, show "Create Password" screen instead of lock screen
 - Implement password confirmation input (enter twice) with match validation
 - Wire `LockScreen.tsx` submit button to call `crypto.verifyPassword()` via background message
@@ -184,6 +194,7 @@ browservault/
 - **Deliverable:** Full working create-password + unlock cycle
 
 #### **Day 11 — Popup UI**
+
 - Build `Popup.tsx` as the extension's toolbar entry point
 - Build `LockButton.tsx` — prominent "Lock Browser" button, triggers `lockController.lockBrowser()`
 - Build `StatusBadge.tsx` — shows current state (Unlocked / Locked / Idle in X min)
@@ -195,6 +206,7 @@ browservault/
 ### **PHASE 4: Failed Attempts, Cooldown & Notifications (Days 12–14)**
 
 #### **Day 12 — Maximum Attempts Logic**
+
 - Add `maxAttempts` field to settings (configurable number, e.g. 3/5/10)
 - Track `failedAttemptCount` in storage, incremented on each wrong password
 - Reset counter to 0 on successful unlock
@@ -202,6 +214,7 @@ browservault/
 - **Deliverable:** Attempt tracking fully wired to settings and lock screen UI
 
 #### **Day 13 — Cooldown & Lockout Behavior**
+
 - When `failedAttemptCount` reaches `maxAttempts`, trigger a cooldown period (configurable, e.g. 5 minutes)
 - Build cooldown countdown UI on the lock screen (disable input, show timer)
 - Persist cooldown `expiresAt` timestamp in storage so it survives popup/tab reloads
@@ -209,6 +222,7 @@ browservault/
 - **Deliverable:** Full lockout-and-cooldown cycle working and tamper-resistant against reloads
 
 #### **Day 14 — Notifications System**
+
 - Implement "Notify Me Before Locking" using `chrome.notifications.create()`
 - For idle mode: show a warning notification with countdown (e.g. "Locking in 30 seconds") before auto-lock fires
 - For scheduled lock (later feature): same warning pattern
@@ -220,6 +234,7 @@ browservault/
 ### **PHASE 5: Settings Dashboard — Core (Days 15–18)**
 
 #### **Day 15 — Dashboard Shell & Sidebar Navigation**
+
 - Build `DashboardLayout.tsx` with a left sidebar and main content area
 - Build `Sidebar.tsx` with 3 nav items: **Settings**, **Change Password**, **Change Email** (active-state highlighting, icons)
 - Set up simple client-side routing (React Router or state-based tab switching)
@@ -227,6 +242,7 @@ browservault/
 - **Deliverable:** Navigable dashboard shell with empty page placeholders
 
 #### **Day 16 — Settings Page: Behavior Options**
+
 - Build `SettingsPage.tsx` with sectioned cards (General, Lock Behavior, Data)
 - Implement **Run in Background** toggle (keeps service worker persistent/reconnects on browser start)
 - Implement **Start State** selector: Restore with History / Restore All Tabs / Open Blank Tab / Open Custom URL
@@ -235,6 +251,7 @@ browservault/
 - **Deliverable:** Core behavior settings fully functional and persisted
 
 #### **Day 17 — Settings Page: Idle Mode, Max Attempts, Notifications**
+
 - Add **Maximum Attempts** input (number stepper, range 1–10) to Settings page
 - Add **Idle Mode** toggle + duration dropdown (1/5/10/15/30 min, custom option)
 - Add **Notify Me Before Locking** toggle with configurable warning time (e.g. 10/30/60 sec before)
@@ -242,6 +259,7 @@ browservault/
 - **Deliverable:** All originally-requested settings fully implemented and functional
 
 #### **Day 18 — Extra Settings: Schedule, Shortcuts, Per-Profile, Domain Lock**
+
 - Implement **Lock Schedule**: time-range picker, uses `chrome.alarms` to trigger lock at set times
 - Implement **Panic Lock Shortcut** via `chrome.commands` (configurable in `manifest.json` + settings page link to Chrome's shortcut settings page)
 - Implement **Per-Profile Lock Rules**: detect profile via `chrome.identity` or profile-specific storage partitioning; allow independent settings per profile
@@ -253,6 +271,7 @@ browservault/
 ### **PHASE 6: Dashboard Polish & Activity Log (Days 19–20)**
 
 #### **Day 19 — Theme, Import/Export**
+
 - Implement Dark/Light theme toggle using Tailwind `dark:` class strategy + `AppContext.tsx` for theme state
 - Persist theme choice to storage; apply theme across popup, dashboard, and lock screen
 - Build **Export Settings**: serialize settings (excluding password hash) to downloadable JSON file
@@ -260,6 +279,7 @@ browservault/
 - **Deliverable:** Theming system and settings backup/restore fully working
 
 #### **Day 20 — Activity Log Page**
+
 - Build `ActivityLogPage.tsx`: table/list view of events (lock, unlock, failed attempt, settings change, password change, email change)
 - Build `useActivityLog.ts` hook: append-only log writer + reader from storage
 - Add filters (by event type, date range) and pagination if log grows large
@@ -271,6 +291,7 @@ browservault/
 ### **PHASE 7: Password, Email & OTP System (Days 21–25)**
 
 #### **Day 21 — Change Password Flow**
+
 - Build `PasswordPage.tsx`: current password field, new password field, confirm field
 - Validate current password before allowing change (call `crypto.verifyPassword()`)
 - Add password strength meter (weak/medium/strong based on length + character variety)
@@ -278,6 +299,7 @@ browservault/
 - **Deliverable:** Secure password change flow, fully validated
 
 #### **Day 22 — PIN & Backup Codes**
+
 - Add optional **PIN setup** (4–6 digit) as a secondary quick-unlock method, stored hashed separately from password
 - Update `LockScreen.tsx` to allow switching between Password/PIN input modes
 - Generate **backup recovery codes** (e.g. 8 single-use codes) on first password setup, shown once with a "copy/download" option
@@ -285,6 +307,7 @@ browservault/
 - **Deliverable:** PIN unlock and backup code system implemented
 
 #### **Day 23 — Email Backend Setup (OTP Dispatch Service)**
+
 - Set up a serverless function (`backend/sendOtp.ts`) using Resend, SendGrid, or Firebase Functions
 - Configure environment variables/secrets for the email service API key (`backend/config.ts`)
 - Build a simple endpoint: receives `{ email, otp }`, sends a formatted email, returns success/failure
@@ -292,6 +315,7 @@ browservault/
 - **Deliverable:** Working backend endpoint that sends OTP emails on request
 
 #### **Day 24 — Forgot Password Flow**
+
 - Build "Forgot Password" screen (accessible from lock screen): enter registered email → request OTP
 - Call `emailApi.ts` → backend `sendOtp` → generate OTP via `otp.ts` → store OTP + expiry in `chrome.storage.local`
 - Build `OtpInput.tsx`: 6 separate digit boxes with auto-focus advance and paste support
@@ -300,6 +324,7 @@ browservault/
 - **Deliverable:** Full forgot-password-via-email-OTP flow working end-to-end
 
 #### **Day 25 — Change Email Flow & First-Time Email Verification**
+
 - Build `EmailPage.tsx`: current email display, "Change Email" button
 - Require current password confirmation before allowing the change request
 - Send OTP to the **new** email address, verify before committing the change to storage
@@ -311,12 +336,14 @@ browservault/
 ### **PHASE 8: Advanced Security & UX Polish (Days 26–27)**
 
 #### **Day 26 — Biometric Unlock (WebAuthn) & Auto-Lock Triggers**
+
 - Implement optional biometric unlock using the WebAuthn API (`navigator.credentials`) where platform authenticators are available
 - Add graceful fallback messaging when WebAuthn isn't supported on the device/browser
 - Implement **auto-lock on system sleep/lid close** detection where feasible (via `chrome.idle` "locked" state or power event signals)
 - **Deliverable:** Biometric unlock option and system-sleep auto-lock trigger implemented
 
 #### **Day 27 — UI/UX Polish Pass**
+
 - Audit and refine Tailwind styling consistency across popup, dashboard, and lock screen (spacing, typography, color tokens)
 - Add smooth transitions: overlay fade, sidebar active indicator slide, toast slide-in/out
 - Build `Toast.tsx` global notification system for success/error/info messages across the app
@@ -329,6 +356,7 @@ browservault/
 ### **PHASE 9: Testing, Security Review & Launch (Days 28–30)**
 
 #### **Day 28 — Comprehensive Testing**
+
 - Write unit tests for: password hashing/verification, OTP generation/expiry, idle timer logic, cooldown logic, storage wrapper
 - Write integration tests for: full lock → unlock cycle, forgot password flow, change email flow
 - Manual QA checklist: test all settings combinations together (idle + schedule + notifications + max attempts)
@@ -337,6 +365,7 @@ browservault/
 - **Deliverable:** Test suite passing, major bugs resolved, QA checklist signed off
 
 #### **Day 29 — Security Review & Hardening**
+
 - Confirm passwords/PINs are never stored or logged in plain text anywhere (including console logs and error messages)
 - Confirm OTPs are not exposed in logs, and expire correctly server-side and client-side
 - Review `manifest.json` permissions — remove anything overly broad or unused (principle of least privilege)
@@ -345,6 +374,7 @@ browservault/
 - **Deliverable:** Security review completed with hardening fixes applied
 
 #### **Day 30 — Packaging & Chrome Web Store Submission**
+
 - Finalize icon set (16/48/128px) and promotional graphics (1280x800 screenshots, small promo tile)
 - Write Chrome Web Store listing: short description, detailed description (repurpose feature list), category, privacy practices disclosure
 - Write a clear **Privacy Policy** page (required — discloses local storage use and OTP email transmission)

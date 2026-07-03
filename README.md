@@ -1,6 +1,6 @@
 # BrowserVault
 
-A Chrome Extension for locking your browser. 
+A Chrome Extension for locking your browser.
 
 ## Development Setup
 

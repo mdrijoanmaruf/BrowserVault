@@ -20,7 +20,13 @@ export interface AuthState {
 export interface ActivityLogEntry {
   id: string;
   timestamp: number;
-  type: 'LOCK' | 'UNLOCK' | 'FAILED_ATTEMPT' | 'SETTINGS_CHANGE' | 'PASSWORD_CHANGE' | 'EMAIL_CHANGE';
+  type:
+    | 'LOCK'
+    | 'UNLOCK'
+    | 'FAILED_ATTEMPT'
+    | 'SETTINGS_CHANGE'
+    | 'PASSWORD_CHANGE'
+    | 'EMAIL_CHANGE';
   details?: string;
 }
 

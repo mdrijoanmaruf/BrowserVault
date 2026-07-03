@@ -3,17 +3,19 @@ import { storage } from '@/lib/storage';
 
 // Mock chrome API
 const mockStorageLocal = {
-  store: {} as Record<string, any>,
-  get: vi.fn((keys: string[], callback: (result: any) => void) => {
-    const result: Record<string, any> = {};
-    keys.forEach((k) => {
-      if (mockStorageLocal.store[k] !== undefined) {
-        result[k] = mockStorageLocal.store[k];
-      }
-    });
-    callback(result);
-  }),
-  set: vi.fn((items: Record<string, any>, callback: () => void) => {
+  store: {} as Record<string, unknown>,
+  get: vi.fn(
+    (keys: string[], callback: (result: Record<string, unknown>) => void) => {
+      const result: Record<string, unknown> = {};
+      keys.forEach((k) => {
+        if (mockStorageLocal.store[k] !== undefined) {
+          result[k] = mockStorageLocal.store[k];
+        }
+      });
+      callback(result);
+    }
+  ),
+  set: vi.fn((items: Record<string, unknown>, callback: () => void) => {
     Object.assign(mockStorageLocal.store, items);
     callback();
   }),
@@ -26,7 +28,7 @@ const mockStorageLocal = {
   }),
 };
 
-// @ts-ignore
+// @ts-expect-error Mocking global object for tests
 global.chrome = {
   storage: {
     local: mockStorageLocal,
@@ -41,14 +43,20 @@ describe('Storage Layer', () => {
 
   it('should set an item', async () => {
     await storage.setItem('test_key', { foo: 'bar' });
-    expect(mockStorageLocal.set).toHaveBeenCalledWith({ test_key: { foo: 'bar' } }, expect.any(Function));
+    expect(mockStorageLocal.set).toHaveBeenCalledWith(
+      { test_key: { foo: 'bar' } },
+      expect.any(Function)
+    );
     expect(mockStorageLocal.store['test_key']).toEqual({ foo: 'bar' });
   });
 
   it('should get an item', async () => {
     mockStorageLocal.store['test_key'] = { foo: 'baz' };
     const result = await storage.getItem('test_key');
-    expect(mockStorageLocal.get).toHaveBeenCalledWith(['test_key'], expect.any(Function));
+    expect(mockStorageLocal.get).toHaveBeenCalledWith(
+      ['test_key'],
+      expect.any(Function)
+    );
     expect(result).toEqual({ foo: 'baz' });
   });
 
@@ -60,7 +68,10 @@ describe('Storage Layer', () => {
   it('should remove an item', async () => {
     mockStorageLocal.store['test_key'] = { foo: 'baz' };
     await storage.removeItem('test_key');
-    expect(mockStorageLocal.remove).toHaveBeenCalledWith('test_key', expect.any(Function));
+    expect(mockStorageLocal.remove).toHaveBeenCalledWith(
+      'test_key',
+      expect.any(Function)
+    );
     expect(mockStorageLocal.store['test_key']).toBeUndefined();
   });
 });

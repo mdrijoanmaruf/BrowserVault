@@ -21,6 +21,39 @@ import type { UserSettings, AuthState, LockState } from '@/types';
 
 const router = new MessageRouter();
 
+// ─────────────────────────────────────────────────────────────
+// Service Worker Keepalive (MV3 workaround)
+// MV3 service workers are killed after ~30s of inactivity.
+// We use a repeating alarm to keep it alive and handle port connections.
+// ─────────────────────────────────────────────────────────────
+
+chrome.alarms.create('bv-keepalive', { periodInMinutes: 0.4 }); // every ~24s
+chrome.alarms.onAlarm.addListener((alarm) => {
+  if (alarm.name === 'bv-keepalive') {
+    // Intentional no-op: just wakes up the service worker
+    console.debug('[BrowserVault] keepalive ping');
+  }
+});
+
+// Port-based message handling for reliable popup↔SW communication
+chrome.runtime.onConnect.addListener((port) => {
+  if (port.name !== 'bv-popup') return;
+  port.onMessage.addListener(async (message) => {
+    if (!message?.action) return;
+    const handler = (router as any).handlers.get(message.action);
+    if (!handler) {
+      port.postMessage({ success: false, error: `Unknown action: ${message.action}` });
+      return;
+    }
+    try {
+      const data = await handler(message.payload);
+      port.postMessage({ success: true, data, _reqId: message._reqId });
+    } catch (err: any) {
+      port.postMessage({ success: false, error: err?.message || String(err), _reqId: message._reqId });
+    }
+  });
+});
+
 async function initializeState(): Promise<void> {
   const lockState = await getLockStatus();
   console.log('[BrowserVault] Service Worker started. Lock state:', lockState);
@@ -285,3 +318,77 @@ router.on('GET_ACTIVITY_LOG', async () => {
 
 router.listen();
 initializeState();
+
+// ─────────────────────────────────────────────────────────────
+// Browser Startup Lock Enforcement
+// ─────────────────────────────────────────────────────────────
+
+const LOCK_PAGE_URL = chrome.runtime.getURL('lock.html');
+
+/** Returns true if the browser is currently locked */
+async function isCurrentlyLocked(): Promise<boolean> {
+  const state = await storage.getItem<{ isLocked?: boolean }>(STORAGE_KEYS.LOCK_STATE);
+  return state?.isLocked === true;
+}
+
+/**
+ * On browser startup: if locked, redirect all existing (restored session) tabs
+ * to the lock page. Also broadcast SHOW_LOCK_OVERLAY to content-script tabs.
+ */
+chrome.runtime.onStartup.addListener(async () => {
+  console.log('[BrowserVault] onStartup fired');
+  if (!(await isCurrentlyLocked())) return;
+
+  console.log('[BrowserVault] Browser is locked — redirecting all tabs to lock page');
+  const tabs = await chrome.tabs.query({});
+  for (const tab of tabs) {
+    if (!tab.id) continue;
+    const url = tab.url ?? '';
+    // Don't redirect tabs that are already on the lock page
+    if (url.startsWith(LOCK_PAGE_URL)) continue;
+    // For chrome:// pages (including newtab) we can't inject content scripts,
+    // so redirect them directly to the lock page
+    if (url.startsWith('chrome://') || url === '' || url === 'about:blank') {
+      chrome.tabs.update(tab.id, { url: LOCK_PAGE_URL }).catch(() => {});
+    } else {
+      // For http/https pages the content script overlay will show; also redirect as backup
+      const encodedRedirect = encodeURIComponent(url);
+      chrome.tabs.update(tab.id, { url: `${LOCK_PAGE_URL}?redirect=${encodedRedirect}` }).catch(() => {});
+    }
+  }
+});
+
+/**
+ * Intercept new tab creation while locked:
+ * Redirect the new tab to the lock page immediately.
+ */
+chrome.tabs.onCreated.addListener(async (tab) => {
+  if (!tab.id) return;
+  if (!(await isCurrentlyLocked())) return;
+
+  const url = tab.url ?? tab.pendingUrl ?? '';
+  // Don't redirect if already going to the lock page
+  if (url.startsWith(LOCK_PAGE_URL)) return;
+
+  const encodedRedirect = url && url.startsWith('http') ? `?redirect=${encodeURIComponent(url)}` : '';
+  chrome.tabs.update(tab.id, { url: `${LOCK_PAGE_URL}${encodedRedirect}` }).catch(() => {});
+});
+
+/**
+ * Intercept navigation while locked (catches address-bar navigation).
+ */
+chrome.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
+  // Only act when a new URL starts loading
+  if (changeInfo.status !== 'loading') return;
+  const url = changeInfo.url ?? tab.url ?? '';
+  // Ignore extension pages and chrome:// pages
+  if (!url || url.startsWith('chrome-extension://') || url.startsWith('chrome://')) return;
+  // Already on lock page
+  if (url.startsWith(LOCK_PAGE_URL)) return;
+
+  if (!(await isCurrentlyLocked())) return;
+
+  const encodedRedirect = url.startsWith('http') ? `?redirect=${encodeURIComponent(url)}` : '';
+  chrome.tabs.update(tabId, { url: `${LOCK_PAGE_URL}${encodedRedirect}` }).catch(() => {});
+});
+

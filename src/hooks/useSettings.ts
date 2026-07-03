@@ -1,15 +1,13 @@
 /**
- * useSettings — Day 16
+ * useSettings — Direct storage version
  *
- * React hook that loads UserSettings from storage on mount and provides
- * an `updateSettings` function that persists changes immediately via
- * the BACKGROUND_UPDATE_SETTINGS message (updates both storage and
- * restarts the idleWatcher in the service worker).
+ * Reads and writes UserSettings directly from chrome.storage.local.
+ * Zero dependency on the background service worker.
  */
 
 import { useState, useEffect, useCallback } from 'react';
 import type { UserSettings } from '@/types';
-import { DEFAULT_USER_SETTINGS } from '@/lib/constants';
+import { DEFAULT_USER_SETTINGS, STORAGE_KEYS } from '@/lib/constants';
 
 export interface UseSettingsReturn {
   settings: UserSettings;
@@ -17,25 +15,32 @@ export interface UseSettingsReturn {
   updateSettings: (patch: Partial<UserSettings>) => Promise<void>;
 }
 
+function storageGet<T>(key: string): Promise<T | null> {
+  return new Promise((resolve) => {
+    chrome.storage.local.get([key], (result) => {
+      if (chrome.runtime.lastError) { resolve(null); return; }
+      resolve(result[key] !== undefined ? (result[key] as T) : null);
+    });
+  });
+}
+
+function storageSet<T>(key: string, value: T): Promise<void> {
+  return new Promise((resolve) => {
+    chrome.storage.local.set({ [key]: value }, () => resolve());
+  });
+}
+
 export function useSettings(): UseSettingsReturn {
   const [settings, setSettings] = useState<UserSettings>(DEFAULT_USER_SETTINGS);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Load on mount
+  // Load on mount — read directly from chrome.storage.local
   useEffect(() => {
     (async () => {
       try {
-        const response = await chrome.runtime.sendMessage({ action: 'GET_STATE' }) as
-          { data?: { settings?: UserSettings } } | undefined;
-
-        if (response?.data?.settings) {
-          setSettings(response.data.settings);
-        } else {
-          // Fallback: read directly from storage
-          const result = await chrome.storage.local.get('vault_settings');
-          if (result['vault_settings']) {
-            setSettings({ ...DEFAULT_USER_SETTINGS, ...(result['vault_settings'] as Partial<UserSettings>) });
-          }
+        const stored = await storageGet<Partial<UserSettings>>(STORAGE_KEYS.SETTINGS);
+        if (stored) {
+          setSettings({ ...DEFAULT_USER_SETTINGS, ...stored });
         }
       } catch {
         // Use defaults silently
@@ -50,9 +55,14 @@ export function useSettings(): UseSettingsReturn {
     setSettings(next); // Optimistic update
 
     try {
-      await chrome.runtime.sendMessage({ action: 'UPDATE_SETTINGS', payload: patch });
+      // Write directly to storage — no SW needed
+      await storageSet<UserSettings>(STORAGE_KEYS.SETTINGS, next);
+      // Also notify SW to restart idle watcher if it happens to be alive (best-effort)
+      chrome.runtime.sendMessage({ action: 'UPDATE_SETTINGS', payload: patch }, () => {
+        void chrome.runtime.lastError; // consume error silently
+      });
     } catch {
-      // Revert on failure
+      // Revert optimistic update on failure
       setSettings(settings);
     }
   }, [settings]);

@@ -15,4 +15,13 @@ export default defineConfig({
       '@': path.resolve(__dirname, './src'),
     },
   },
+  build: {
+    rollupOptions: {
+      input: {
+        popup: path.resolve(__dirname, 'popup.html'),
+        index: path.resolve(__dirname, 'index.html'),
+        lock: path.resolve(__dirname, 'lock.html'),
+      },
+    },
+  },
 });

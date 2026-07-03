@@ -1,42 +1,39 @@
 /**
  * Content Script Entry — src/content/index.ts
  *
- * Runs on every page (document_idle). On load it checks whether the
- * browser is currently locked; if so it shows the overlay immediately.
+ * Runs on every page (document_idle). On load it reads isLocked DIRECTLY
+ * from chrome.storage.local — no dependency on the SW being alive.
  *
- * It also listens for SHOW_LOCK_OVERLAY / HIDE_LOCK_OVERLAY messages
- * from the background service worker (sent by lockController.ts).
+ * Also listens for SHOW_LOCK_OVERLAY / HIDE_LOCK_OVERLAY messages from
+ * the background service worker for real-time lock/unlock broadcasts.
  */
 
 import { showOverlay, hideOverlay } from './lockOverlay';
-
-// ── Types ──────────────────────────────────────────────────────
-
-interface StateMessage {
-  data?: {
-    lockState?: { isLocked?: boolean };
-  };
-}
 
 interface RuntimeMessage {
   action?: string;
 }
 
-// ── On-load state check ────────────────────────────────────────
+const LOCK_STATE_KEY = 'vault_lock_state';
+
+// ── On-load state check (reads storage directly, SW-independent) ──
 
 (async () => {
   try {
-    const response = (await chrome.runtime.sendMessage({ action: 'GET_STATE' })) as StateMessage | undefined;
-    if (response?.data?.lockState?.isLocked) {
+    // Read lock state directly from storage — reliable even when SW is dead
+    const result = await new Promise<Record<string, any>>((resolve) => {
+      chrome.storage.local.get([LOCK_STATE_KEY], (r) => resolve(r || {}));
+    });
+    const lockState = result[LOCK_STATE_KEY];
+    if (lockState?.isLocked === true) {
       showOverlay();
     }
   } catch {
-    // Service worker may not be awake yet; overlay will appear when
-    // the background sends SHOW_LOCK_OVERLAY explicitly.
+    // Silently ignore — extension context may not be ready
   }
 })();
 
-// ── Message listener ───────────────────────────────────────────
+// ── Message listener (for real-time SW broadcasts) ────────────────
 
 chrome.runtime.onMessage.addListener((message: RuntimeMessage) => {
   if (message?.action === 'SHOW_LOCK_OVERLAY') {

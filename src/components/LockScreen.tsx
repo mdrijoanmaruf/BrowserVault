@@ -24,6 +24,13 @@ import { verifyBiometrics } from '@/lib/webauthn';
 
 type LockMode = 'setup' | 'unlock' | 'cooldown' | 'backup-codes' | 'forgot' | 'otp-verify';
 
+// Direct storage helpers (no SW)
+function directStorageSet(data: Record<string, unknown>): Promise<void> {
+  return new Promise((resolve) => {
+    chrome.storage.local.set(data, () => resolve());
+  });
+}
+
 interface LockScreenProps {
   onHide?: () => void;
 }
@@ -265,10 +272,7 @@ export function LockScreen({ onHide }: LockScreenProps) {
   const [remainingAttempts, setRemainingAttempts] = useState<number | null>(null);
 
   const [cooldownRemainingMs, setCooldownRemainingMs] = useState(0);
-  const [backupCodes, setBackupCodes] = useState<string[] | null>(null);
-
-  const [recoveryEmail, setRecoveryEmail] = useState('');
-  const [otp, setOtp] = useState('');
+  const [backupCodes] = useState<string[] | null>(null);
 
   const [cooldownExpiresAt, setCooldownExpiresAt] = useState<number | null>(null);
   const COOLDOWN_TOTAL_MS = 5 * 60 * 1000;
@@ -276,54 +280,59 @@ export function LockScreen({ onHide }: LockScreenProps) {
   const [theme, setTheme] = useState<'light' | 'dark'>('dark');
   const [biometricsEnabled, setBiometricsEnabled] = useState(false);
 
+  // Load initial state directly from storage (no SW needed)
   useEffect(() => {
     (async () => {
       try {
-        const response = await chrome.runtime.sendMessage({ action: 'GET_STATE' }) as
-          {
-            data?: {
-              authState?: { hasPassword?: boolean, hasBiometrics?: boolean };
-              lockState?: { cooldownExpiresAt?: number | null; failedAttemptCount?: number };
-              maxAttempts?: number;
-              settings?: { theme?: 'light' | 'dark' | 'system', biometricUnlockEnabled?: boolean };
-            }
-          } | undefined;
+        // Read auth state
+        const result = await new Promise<Record<string, any>>((resolve) => {
+          chrome.storage.local.get(
+            ['vault_auth_state', 'vault_lock_state', 'vault_settings'],
+            (r) => resolve(r || {})
+          );
+        });
 
-        const data = response?.data;
+        const authState = result['vault_auth_state'];
+        const lockState = result['vault_lock_state'];
+        const settings = result['vault_settings'];
 
-        if (data?.settings?.theme) {
-          const t = data.settings.theme;
+        // Theme
+        if (settings?.theme) {
+          const t = settings.theme;
           if (t === 'system') {
-            const isDark = typeof window !== 'undefined' && window.matchMedia('(prefers-color-scheme: dark)').matches;
+            const isDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
             setTheme(isDark ? 'dark' : 'light');
           } else {
-            setTheme(t);
+            setTheme(t as 'light' | 'dark');
           }
         }
 
-        if (data?.settings?.biometricUnlockEnabled && data?.authState?.hasBiometrics) {
+        // Biometrics
+        if (settings?.biometricUnlockEnabled && authState?.hasBiometrics) {
           setBiometricsEnabled(true);
         }
 
-        if (data?.authState?.hasPassword === false) {
+        // No password set yet
+        if (!authState?.hasPassword) {
           setMode('setup');
           return;
         }
 
-        if (data?.maxAttempts) {
-          setMaxAttempts(data.maxAttempts);
-          const failed = data.lockState?.failedAttemptCount ?? 0;
-          setRemainingAttempts(data.maxAttempts - failed);
-        }
+        // Max attempts
+        const maxAtt = settings?.maxAttempts ?? 5;
+        setMaxAttempts(maxAtt);
+        const failed = lockState?.failedAttemptCount ?? 0;
+        setRemainingAttempts(maxAtt - failed);
 
-        const expiresAt = data?.lockState?.cooldownExpiresAt;
+        // Cooldown
+        const expiresAt = lockState?.cooldownExpiresAt;
         if (expiresAt && Date.now() < expiresAt) {
           setCooldownExpiresAt(expiresAt);
           setCooldownRemainingMs(expiresAt - Date.now());
           setMode('cooldown');
         }
       } catch {
-        // Service worker may not be awake yet — default to unlock mode
+        // Default to unlock mode on error
       }
     })();
   }, []);
@@ -393,46 +402,88 @@ export function LockScreen({ onHide }: LockScreenProps) {
     setIsLoading(true);
     setError('');
     try {
-      const response = await chrome.runtime.sendMessage({
-        action: 'UNLOCK_BROWSER',
-        payload: { password },
-      }) as {
-        data?: {
-          success?: boolean;
-          noPasswordSet?: boolean;
-          failedAttemptCount?: number;
-          remainingAttempts?: number;
-          cooldownActive?: boolean;
-          cooldownExpiresAt?: number;
-        }
-      } | undefined;
+      // Verify password directly from storage — no SW required
+      const result = await new Promise<Record<string, any>>((resolve) => {
+        chrome.storage.local.get(
+          ['vault_password_hash', 'vault_password_salt', 'vault_pin_hash', 'vault_pin_salt', 'vault_lock_state', 'vault_settings'],
+          (r) => resolve(r || {})
+        );
+      });
 
-      const data = response?.data;
+      const storedHash = result['vault_password_hash'] as string | undefined;
+      const storedSalt = result['vault_password_salt'] as string | undefined;
 
-      if (data?.success) {
-        onHide?.();
-      } else if (data?.noPasswordSet) {
+      if (!storedHash || !storedSalt) {
         setMode('setup');
-      } else if (data?.cooldownActive && data.cooldownExpiresAt) {
-        setCooldownExpiresAt(data.cooldownExpiresAt);
-        setCooldownRemainingMs(data.cooldownExpiresAt - Date.now());
-        setMode('cooldown');
-      } else {
-        const remaining = data?.remainingAttempts ?? null;
-        setRemainingAttempts(remaining);
-        const msg = remaining !== null && remaining > 0
-          ? `Incorrect password — ${remaining} attempt${remaining !== 1 ? 's' : ''} remaining.`
-          : 'Incorrect password.';
-        setError(msg);
-        triggerShake();
-        setPassword('');
+        setIsLoading(false);
+        return;
       }
-    } catch {
-      setError('Unable to reach the extension service. Try reloading the page.');
+
+      // Check cooldown
+      const lockState = result['vault_lock_state'];
+      if (lockState?.cooldownExpiresAt && Date.now() < lockState.cooldownExpiresAt) {
+        setCooldownExpiresAt(lockState.cooldownExpiresAt);
+        setCooldownRemainingMs(lockState.cooldownExpiresAt - Date.now());
+        setMode('cooldown');
+        setIsLoading(false);
+        return;
+      }
+
+      // Dynamic import of verifyPassword (included in bundle)
+      const { verifyPassword } = await import('@/lib/crypto');
+      let isValid = await verifyPassword(password, storedHash, storedSalt);
+
+      // Try PIN
+      if (!isValid) {
+        const pinHash = result['vault_pin_hash'] as string | undefined;
+        const pinSalt = result['vault_pin_salt'] as string | undefined;
+        if (pinHash && pinSalt) {
+          isValid = await verifyPassword(password, pinHash, pinSalt);
+        }
+      }
+
+      const settings = result['vault_settings'];
+      const maxAtt = settings?.maxAttempts ?? maxAttempts;
+
+      if (isValid) {
+        // Unlock: update storage
+        const newLock = { ...(lockState ?? {}), isLocked: false, failedAttemptCount: 0, cooldownExpiresAt: null };
+        await new Promise<void>((resolve) => {
+          chrome.storage.local.set({ vault_lock_state: newLock }, () => resolve());
+        });
+        onHide?.();
+      } else {
+        // Record failed attempt
+        const currentFailed = (lockState?.failedAttemptCount ?? 0) + 1;
+        const newLock = { ...(lockState ?? {}), failedAttemptCount: currentFailed };
+
+        if (currentFailed >= maxAtt) {
+          const cooldownEnd = Date.now() + 5 * 60 * 1000;
+          newLock.cooldownExpiresAt = cooldownEnd;
+          await new Promise<void>((resolve) => {
+            chrome.storage.local.set({ vault_lock_state: newLock }, () => resolve());
+          });
+          setCooldownExpiresAt(cooldownEnd);
+          setCooldownRemainingMs(5 * 60 * 1000);
+          setMode('cooldown');
+        } else {
+          await new Promise<void>((resolve) => {
+            chrome.storage.local.set({ vault_lock_state: newLock }, () => resolve());
+          });
+          const remaining = maxAtt - currentFailed;
+          setRemainingAttempts(remaining);
+          setError(`Incorrect password — ${remaining} attempt${remaining !== 1 ? 's' : ''} remaining.`);
+          triggerShake();
+          setPassword('');
+        }
+      }
+    } catch (err) {
+      setError('Verification failed. Please try again.');
+      console.error('[LockScreen] unlock error:', err);
     } finally {
       setIsLoading(false);
     }
-  }, [password, onHide, triggerShake]);
+  }, [password, onHide, triggerShake, maxAttempts]);
 
   const handleSetup = useCallback(async () => {
     if (!password) { setError('Please enter a password.'); triggerShake(); return; }
@@ -442,77 +493,60 @@ export function LockScreen({ onHide }: LockScreenProps) {
     setIsLoading(true);
     setError('');
     try {
-      const setResp = await chrome.runtime.sendMessage({
-        action: 'SET_PASSWORD',
-        payload: { password },
-      }) as { data?: { success?: boolean, backupCodes?: string[] } } | undefined;
+      // Import crypto utilities dynamically
+      const { generateSalt, hashPassword } = await import('@/lib/crypto');
+      const salt = generateSalt();
+      const hash = await hashPassword(password, salt);
 
-      if (!setResp?.data?.success) {
-        setError('Failed to save password. Please try again.');
-        setIsLoading(false);
-        return;
-      }
-      
-      if (setResp.data.backupCodes) {
-        setBackupCodes(setResp.data.backupCodes);
-        setMode('backup-codes');
-        setIsLoading(false);
-        return; // Wait for user to save codes
-      }
+      // Write directly to storage
+      await directStorageSet({
+        vault_password_hash: hash,
+        vault_password_salt: salt,
+        vault_auth_state: { hasPassword: true, hasPin: false, emailVerified: false, hasBackupCodes: false, hasBiometrics: false },
+        vault_lock_state: { isLocked: false, failedAttemptCount: 0, cooldownExpiresAt: null },
+      });
 
-      const unlockResp = await chrome.runtime.sendMessage({
-        action: 'UNLOCK_BROWSER',
-        payload: { password },
-      }) as { data?: { success?: boolean } } | undefined;
+      // Notify SW (best-effort)
+      chrome.runtime.sendMessage({ action: 'GET_STATE' }, () => { void chrome.runtime.lastError; });
 
-      if (unlockResp?.data?.success) {
-        onHide?.();
-      } else {
-        setMode('unlock');
-      }
-    } catch {
-      setError('Unable to reach the extension service. Try reloading the page.');
+      onHide?.();
+    } catch (err) {
+      setError('Failed to save password. Please try again.');
+      console.error('[LockScreen] setup error:', err);
     } finally {
       setIsLoading(false);
     }
   }, [password, confirmPassword, onHide, triggerShake]);
 
-  const handleRequestOtp = useCallback(async () => {
-    if (!recoveryEmail) { setError('Please enter your recovery email.'); triggerShake(); return; }
-    setIsLoading(true);
-    setError('');
-    try {
-      const resp = await chrome.runtime.sendMessage({ action: 'REQUEST_OTP' }) as { success?: boolean; error?: string; email?: string } | undefined;
-      if (resp?.success && resp.email === recoveryEmail) {
-        setMode('otp-verify');
-      } else {
-        setError(resp?.error || 'Failed to send OTP or email mismatch.');
-      }
-    } catch {
-      setError('Network error.');
-    } finally {
-      setIsLoading(false);
-    }
-  }, [recoveryEmail, triggerShake]);
+  // "Forgot Password" → directly reset password (no email/OTP needed)
+  const handleResetPassword = useCallback(async () => {
+    if (!password) { setError('Please enter a new password.'); triggerShake(); return; }
+    if (checkPasswordStrength(password) === 'weak') { setError('Password too weak — at least 8 chars with mixed types.'); triggerShake(); return; }
+    if (password !== confirmPassword) { setError('Passwords do not match.'); triggerShake(); return; }
 
-  const handleVerifyOtp = useCallback(async () => {
-    if (!otp) { setError('Please enter the OTP.'); triggerShake(); return; }
     setIsLoading(true);
     setError('');
     try {
-      const resp = await chrome.runtime.sendMessage({ action: 'VERIFY_OTP', payload: { otp } }) as { success?: boolean; error?: string } | undefined;
-      if (resp?.success) {
-        onHide?.();
-      } else {
-        setError(resp?.error || 'Invalid OTP.');
-        triggerShake();
-      }
-    } catch {
-      setError('Network error.');
+      const { generateSalt, hashPassword } = await import('@/lib/crypto');
+      const salt = generateSalt();
+      const hash = await hashPassword(password, salt);
+
+      await directStorageSet({
+        vault_password_hash: hash,
+        vault_password_salt: salt,
+        vault_auth_state: { hasPassword: true, hasPin: false, emailVerified: false, hasBackupCodes: false, hasBiometrics: false },
+        vault_lock_state: { isLocked: false, failedAttemptCount: 0, cooldownExpiresAt: null },
+      });
+
+      chrome.runtime.sendMessage({ action: 'GET_STATE' }, () => { void chrome.runtime.lastError; });
+      onHide?.();
+    } catch (err) {
+      setError('Failed to reset password. Please try again.');
+      console.error('[LockScreen] reset error:', err);
     } finally {
       setIsLoading(false);
     }
-  }, [otp, onHide, triggerShake]);
+  }, [password, confirmPassword, onHide, triggerShake]);
 
   const hours = time.getHours().toString().padStart(2, '0');
   const minutes = time.getMinutes().toString().padStart(2, '0');
@@ -774,23 +808,33 @@ export function LockScreen({ onHide }: LockScreenProps) {
               </>
             )}
 
-            {/* ── Forgot mode ── */}
+            {/* ── Forgot mode (Reset Password) ── */}
             {mode === 'forgot' && (
-              <form onSubmit={(e) => { e.preventDefault(); handleRequestOtp(); }}>
+              <form onSubmit={(e) => { e.preventDefault(); handleResetPassword(); }}>
                 <p style={{ color: c.textSubtle, fontSize: 13, margin: '0 0 16px', lineHeight: 1.5 }}>
-                  Enter your recovery email. If it matches the one on file, we will send you a one-time passcode (OTP).
+                  Set a new password. (Email OTP is currently disabled).
                 </p>
-                <input
-                  type="email"
-                  value={recoveryEmail}
-                  onChange={(e) => { setRecoveryEmail(e.target.value); clearError(); }}
-                  placeholder="Recovery email address"
+                <PasswordField
+                  id="bv-new-password"
+                  value={password}
+                  onChange={(v) => { setPassword(v); clearError(); }}
+                  onKeyEnter={handleResetPassword}
+                  placeholder="New password (min. 8 characters)"
+                  showPassword={showPassword}
+                  onToggleShow={() => setShowPassword((v) => !v)}
                   autoFocus
-                  style={{
-                    width: '100%', padding: '12px 16px', borderRadius: 12, border: `1px solid ${c.inputBorder}`,
-                    background: c.inputBg, color: c.textMain, fontSize: 14,
-                    outline: 'none', transition: 'all 0.2s', marginBottom: 12,
-                  }}
+                  styleVars={{ '--input-bg': c.inputBg, '--input-border': c.inputBorder, '--text-main': c.textMain }}
+                />
+                <PasswordStrengthMeter password={password} isLight={isLight} />
+                <PasswordField
+                  id="bv-confirm-new-password"
+                  value={confirmPassword}
+                  onChange={(v) => { setConfirmPassword(v); clearError(); }}
+                  onKeyEnter={handleResetPassword}
+                  placeholder="Confirm new password"
+                  showPassword={showPassword}
+                  onToggleShow={() => setShowPassword((v) => !v)}
+                  styleVars={{ '--input-bg': c.inputBg, '--input-border': c.inputBorder, '--text-main': c.textMain }}
                 />
                 
                 {error && (
@@ -812,7 +856,7 @@ export function LockScreen({ onHide }: LockScreenProps) {
                     boxShadow: '0 4px 18px rgba(109,40,217,0.4)', transition: 'all 0.2s', marginBottom: 12,
                   }}
                 >
-                  {isLoading ? 'Sending...' : 'Send Recovery Code'}
+                  {isLoading ? 'Resetting...' : 'Set New Password'}
                 </button>
                 <button type="button" className="bv-btn-secondary"
                   onClick={() => setMode('unlock')}
@@ -824,63 +868,6 @@ export function LockScreen({ onHide }: LockScreenProps) {
                   }}
                 >
                   ← Back to Unlock
-                </button>
-              </form>
-            )}
-
-            {/* ── OTP Verify mode ── */}
-            {mode === 'otp-verify' && (
-              <form onSubmit={(e) => { e.preventDefault(); handleVerifyOtp(); }}>
-                <p style={{ color: c.textSubtle, fontSize: 13, margin: '0 0 16px', lineHeight: 1.5 }}>
-                  Enter the 6-digit code sent to your recovery email.
-                </p>
-                <input
-                  type="text"
-                  inputMode="numeric"
-                  pattern="[0-9]*"
-                  maxLength={6}
-                  value={otp}
-                  onChange={(e) => { setOtp(e.target.value); clearError(); }}
-                  placeholder="000000"
-                  autoFocus
-                  style={{
-                    width: '100%', padding: '12px 16px', borderRadius: 12, border: `1px solid ${c.inputBorder}`,
-                    background: c.inputBg, color: c.textMain, fontSize: 24, textAlign: 'center', letterSpacing: '8px',
-                    outline: 'none', transition: 'all 0.2s', marginBottom: 12, fontFamily: 'monospace'
-                  }}
-                />
-                
-                {error && (
-                  <div style={{
-                    background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.22)',
-                    borderRadius: 10, padding: '9px 13px', marginBottom: 12, textAlign: 'left',
-                  }}>
-                    <p style={{ color: '#fca5a5', fontSize: 12, margin: 0 }}>{error}</p>
-                  </div>
-                )}
-                
-                <button
-                  type="submit"
-                  disabled={isLoading}
-                  style={{
-                    width: '100%', padding: '13px', borderRadius: 12, border: 'none',
-                    background: isLoading ? 'rgba(109,40,217,0.5)' : 'linear-gradient(135deg, #7c3aed 0%, #5b21b6 100%)',
-                    color: 'white', fontSize: 14, fontWeight: 600, cursor: isLoading ? 'not-allowed' : 'pointer',
-                    boxShadow: '0 4px 18px rgba(109,40,217,0.4)', transition: 'all 0.2s', marginBottom: 12,
-                  }}
-                >
-                  {isLoading ? 'Verifying...' : 'Unlock Browser'}
-                </button>
-                <button type="button" className="bv-btn-secondary"
-                  onClick={() => setMode('forgot')}
-                  style={{
-                    width: '100%', padding: '12px', borderRadius: 12,
-                    background: 'transparent', border: `1px solid ${c.inputBorder}`,
-                    color: c.textSubtle, fontSize: 14, cursor: 'pointer',
-                    fontWeight: 500, transition: 'all 0.2s',
-                  }}
-                >
-                  ← Go Back
                 </button>
               </form>
             )}

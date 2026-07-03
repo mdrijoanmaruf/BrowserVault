@@ -4,12 +4,19 @@
   "version": "1.0.0",
   "description": "Secure your browser with a lock screen.",
   "action": {
-    "default_popup": "index.html"
+    "default_popup": "popup.html"
   },
   "permissions": [
     "storage",
     "idle",
     "tabs"
+  ],
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["src/content/index.ts"],
+      "run_at": "document_idle"
+    }
   ],
   "background": {
     "service_worker": "src/background/index.ts",

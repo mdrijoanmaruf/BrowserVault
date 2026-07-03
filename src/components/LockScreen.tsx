@@ -1,14 +1,17 @@
 /**
- * LockScreen — Day 8
+ * LockScreen — Days 8 + 12 + 13
  *
- * Full-screen overlay rendered inside a Shadow DOM (content script) or
- * any other React tree. Uses inline styles exclusively so it is completely
- * self-contained and needs no external stylesheet.
+ * Full-screen overlay rendered inside a Shadow DOM. Uses inline styles.
+ *
+ * Day 12: Shows "X attempts remaining" below the password field.
+ * Day 13: When cooldown is active, hides the input and shows a live
+ *         countdown timer until the cooldown expires.
  *
  * Modes:
- *  - "unlock"  → password input, verify via UNLOCK_BROWSER
- *  - "setup"   → first-time password creation (SET_PASSWORD + UNLOCK_BROWSER)
- *  - "forgot"  → recovery instructions placeholder
+ *  - "unlock"   → password input + attempts remaining
+ *  - "setup"    → first-time password creation
+ *  - "forgot"   → recovery instructions placeholder
+ *  - "cooldown" → locked-out countdown screen
  */
 
 import { useState, useEffect, useCallback } from 'react';
@@ -17,7 +20,7 @@ import { useState, useEffect, useCallback } from 'react';
 // Types
 // ─────────────────────────────────────────────────────────────
 
-type LockMode = 'unlock' | 'setup' | 'forgot';
+type LockMode = 'unlock' | 'setup' | 'forgot' | 'cooldown';
 
 interface LockScreenProps {
   onHide?: () => void;
@@ -48,6 +51,10 @@ const KEYFRAMES = `
   @keyframes bvSpin {
     to { transform: rotate(360deg); }
   }
+  @keyframes bvCountdown {
+    from { stroke-dashoffset: 0; }
+    to   { stroke-dashoffset: 251; }
+  }
   .bv-card-enter { animation: bvFadeIn 0.45s cubic-bezier(0.16, 1, 0.3, 1) both; }
   .bv-shake      { animation: bvShake  0.5s ease-in-out; }
   .bv-blob-1     { animation: bvBlob 5s ease-in-out infinite; }
@@ -57,6 +64,10 @@ const KEYFRAMES = `
     outline: none;
     border-color: rgba(167, 139, 250, 0.55) !important;
     box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.18);
+  }
+  .bv-input:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
   }
   .bv-btn-primary:not(:disabled):hover {
     filter: brightness(1.1);
@@ -73,7 +84,18 @@ const KEYFRAMES = `
 `;
 
 // ─────────────────────────────────────────────────────────────
-// Eye icons
+// Utility
+// ─────────────────────────────────────────────────────────────
+
+function formatSeconds(ms: number): string {
+  const totalSec = Math.max(0, Math.ceil(ms / 1000));
+  const m = Math.floor(totalSec / 60);
+  const s = totalSec % 60;
+  return `${m}:${s.toString().padStart(2, '0')}`;
+}
+
+// ─────────────────────────────────────────────────────────────
+// Sub-components
 // ─────────────────────────────────────────────────────────────
 
 function EyeOffIcon() {
@@ -96,10 +118,6 @@ function EyeOnIcon() {
   );
 }
 
-// ─────────────────────────────────────────────────────────────
-// Password field helper
-// ─────────────────────────────────────────────────────────────
-
 interface PasswordFieldProps {
   id: string;
   value: string;
@@ -109,9 +127,10 @@ interface PasswordFieldProps {
   showPassword: boolean;
   onToggleShow: () => void;
   autoFocus?: boolean;
+  disabled?: boolean;
 }
 
-function PasswordField({ id, value, onChange, onKeyEnter, placeholder, showPassword, onToggleShow, autoFocus }: PasswordFieldProps) {
+function PasswordField({ id, value, onChange, onKeyEnter, placeholder, showPassword, onToggleShow, autoFocus, disabled }: PasswordFieldProps) {
   return (
     <div style={{ position: 'relative', marginBottom: 12 }}>
       <input
@@ -123,6 +142,7 @@ function PasswordField({ id, value, onChange, onKeyEnter, placeholder, showPassw
         onKeyDown={(e) => { if (e.key === 'Enter') onKeyEnter(); }}
         placeholder={placeholder}
         autoFocus={autoFocus}
+        disabled={disabled}
         autoComplete={id === 'bv-password' ? 'current-password' : 'new-password'}
         style={{
           width: '100%', boxSizing: 'border-box',
@@ -132,10 +152,10 @@ function PasswordField({ id, value, onChange, onKeyEnter, placeholder, showPassw
           color: 'white', fontSize: 14, transition: 'border-color 0.2s, box-shadow 0.2s',
         }}
       />
-      <button type="button" className="bv-eye" onClick={onToggleShow} tabIndex={-1}
+      <button type="button" className="bv-eye" onClick={onToggleShow} tabIndex={-1} disabled={disabled}
         style={{
           position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)',
-          background: 'none', border: 'none', cursor: 'pointer',
+          background: 'none', border: 'none', cursor: disabled ? 'not-allowed' : 'pointer',
           color: 'rgba(255,255,255,0.35)', padding: 4,
           display: 'flex', alignItems: 'center', transition: 'color 0.2s',
         }}
@@ -145,10 +165,6 @@ function PasswordField({ id, value, onChange, onKeyEnter, placeholder, showPassw
     </div>
   );
 }
-
-// ─────────────────────────────────────────────────────────────
-// Shield logo
-// ─────────────────────────────────────────────────────────────
 
 function ShieldIcon() {
   return (
@@ -167,6 +183,51 @@ function ShieldIcon() {
   );
 }
 
+/** Circular countdown ring for cooldown mode */
+function CooldownRing({ remainingMs, totalMs }: { remainingMs: number; totalMs: number }) {
+  const radius = 40;
+  const circumference = 2 * Math.PI * radius;
+  const progress = Math.max(0, remainingMs / totalMs);
+  const dashOffset = circumference * (1 - progress);
+
+  return (
+    <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 20 }}>
+      <div style={{ position: 'relative', width: 96, height: 96 }}>
+        <svg width="96" height="96" viewBox="0 0 96 96" style={{ transform: 'rotate(-90deg)' }}>
+          {/* Background ring */}
+          <circle cx="48" cy="48" r={radius} fill="none" stroke="rgba(255,255,255,0.08)" strokeWidth="6"/>
+          {/* Progress ring */}
+          <circle
+            cx="48" cy="48" r={radius} fill="none"
+            stroke="url(#bvCooldownGradient)"
+            strokeWidth="6"
+            strokeLinecap="round"
+            strokeDasharray={circumference}
+            strokeDashoffset={dashOffset}
+            style={{ transition: 'stroke-dashoffset 0.5s linear' }}
+          />
+          <defs>
+            <linearGradient id="bvCooldownGradient" x1="0%" y1="0%" x2="100%" y2="0%">
+              <stop offset="0%" stopColor="#ef4444"/>
+              <stop offset="100%" stopColor="#f97316"/>
+            </linearGradient>
+          </defs>
+        </svg>
+        {/* Time text in center */}
+        <div style={{
+          position: 'absolute', inset: 0,
+          display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+        }}>
+          <span style={{ color: 'white', fontSize: 18, fontWeight: 600, fontVariantNumeric: 'tabular-nums' }}>
+            {formatSeconds(remainingMs)}
+          </span>
+          <span style={{ color: 'rgba(255,255,255,0.35)', fontSize: 10, marginTop: 1 }}>remaining</span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ─────────────────────────────────────────────────────────────
 // Main component
 // ─────────────────────────────────────────────────────────────
@@ -181,14 +242,47 @@ export function LockScreen({ onHide }: LockScreenProps) {
   const [isShaking, setIsShaking] = useState(false);
   const [time, setTime] = useState(new Date());
 
-  // Check auth state on mount to pick mode
+  // Day 12: attempts remaining
+  const [maxAttempts, setMaxAttempts] = useState(5);
+  const [remainingAttempts, setRemainingAttempts] = useState<number | null>(null);
+
+  // Day 13: cooldown state
+  const [cooldownExpiresAt, setCooldownExpiresAt] = useState<number | null>(null);
+  const [cooldownRemainingMs, setCooldownRemainingMs] = useState(0);
+  const COOLDOWN_TOTAL_MS = 5 * 60 * 1000;
+
+  // Check state on mount
   useEffect(() => {
     (async () => {
       try {
         const response = await chrome.runtime.sendMessage({ action: 'GET_STATE' }) as
-          { data?: { authState?: { hasPassword?: boolean } } } | undefined;
-        if (response?.data?.authState?.hasPassword === false) {
+          {
+            data?: {
+              authState?: { hasPassword?: boolean };
+              lockState?: { cooldownExpiresAt?: number | null; failedAttemptCount?: number };
+              maxAttempts?: number;
+            }
+          } | undefined;
+
+        const data = response?.data;
+
+        if (data?.authState?.hasPassword === false) {
           setMode('setup');
+          return;
+        }
+
+        if (data?.maxAttempts) {
+          setMaxAttempts(data.maxAttempts);
+          const failed = data.lockState?.failedAttemptCount ?? 0;
+          setRemainingAttempts(data.maxAttempts - failed);
+        }
+
+        // Check for active cooldown
+        const expiresAt = data?.lockState?.cooldownExpiresAt;
+        if (expiresAt && Date.now() < expiresAt) {
+          setCooldownExpiresAt(expiresAt);
+          setCooldownRemainingMs(expiresAt - Date.now());
+          setMode('cooldown');
         }
       } catch {
         // Service worker may not be awake yet — default to unlock mode
@@ -201,6 +295,26 @@ export function LockScreen({ onHide }: LockScreenProps) {
     const id = setInterval(() => setTime(new Date()), 1000);
     return () => clearInterval(id);
   }, []);
+
+  // Cooldown countdown ticker
+  useEffect(() => {
+    if (mode !== 'cooldown' || cooldownExpiresAt === null) return;
+
+    const id = setInterval(() => {
+      const remaining = cooldownExpiresAt - Date.now();
+      if (remaining <= 0) {
+        clearInterval(id);
+        setCooldownExpiresAt(null);
+        setCooldownRemainingMs(0);
+        setRemainingAttempts(maxAttempts);
+        setMode('unlock');
+      } else {
+        setCooldownRemainingMs(remaining);
+      }
+    }, 500);
+
+    return () => clearInterval(id);
+  }, [mode, cooldownExpiresAt, maxAttempts]);
 
   const triggerShake = useCallback(() => {
     setIsShaking(true);
@@ -221,16 +335,36 @@ export function LockScreen({ onHide }: LockScreenProps) {
       const response = await chrome.runtime.sendMessage({
         action: 'UNLOCK_BROWSER',
         payload: { password },
-      }) as { data?: { success?: boolean; noPasswordSet?: boolean; failedAttemptCount?: number } } | undefined;
+      }) as {
+        data?: {
+          success?: boolean;
+          noPasswordSet?: boolean;
+          failedAttemptCount?: number;
+          remainingAttempts?: number;
+          cooldownActive?: boolean;
+          cooldownExpiresAt?: number;
+        }
+      } | undefined;
 
       const data = response?.data;
+
       if (data?.success) {
         onHide?.();
       } else if (data?.noPasswordSet) {
         setMode('setup');
+      } else if (data?.cooldownActive && data.cooldownExpiresAt) {
+        // Max attempts hit — enter cooldown mode (Day 13)
+        setCooldownExpiresAt(data.cooldownExpiresAt);
+        setCooldownRemainingMs(data.cooldownExpiresAt - Date.now());
+        setMode('cooldown');
       } else {
-        const count = data?.failedAttemptCount ?? 0;
-        setError(`Incorrect password — ${count} failed attempt${count !== 1 ? 's' : ''}.`);
+        // Wrong password — show remaining attempts (Day 12)
+        const remaining = data?.remainingAttempts ?? null;
+        setRemainingAttempts(remaining);
+        const msg = remaining !== null && remaining > 0
+          ? `Incorrect password — ${remaining} attempt${remaining !== 1 ? 's' : ''} remaining.`
+          : 'Incorrect password.';
+        setError(msg);
         triggerShake();
         setPassword('');
       }
@@ -249,7 +383,6 @@ export function LockScreen({ onHide }: LockScreenProps) {
     setIsLoading(true);
     setError('');
     try {
-      // Step 1: store the new password
       const setResp = await chrome.runtime.sendMessage({
         action: 'SET_PASSWORD',
         payload: { password },
@@ -260,7 +393,6 @@ export function LockScreen({ onHide }: LockScreenProps) {
         return;
       }
 
-      // Step 2: immediately unlock with the same password so the browser is in a clean state
       const unlockResp = await chrome.runtime.sendMessage({
         action: 'UNLOCK_BROWSER',
         payload: { password },
@@ -284,12 +416,16 @@ export function LockScreen({ onHide }: LockScreenProps) {
   const seconds = time.getSeconds().toString().padStart(2, '0');
   const dateStr = time.toLocaleDateString([], { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' });
 
-  const modeTitle = mode === 'setup' ? 'Welcome to BrowserVault'
+  const modeTitle =
+    mode === 'setup' ? 'Welcome to BrowserVault'
     : mode === 'forgot' ? 'Account Recovery'
+    : mode === 'cooldown' ? 'Too Many Failed Attempts'
     : 'BrowserVault';
 
-  const modeSubtitle = mode === 'setup' ? 'Create a password to secure your browser'
+  const modeSubtitle =
+    mode === 'setup' ? 'Create a password to secure your browser'
     : mode === 'forgot' ? 'How to recover your account'
+    : mode === 'cooldown' ? 'Please wait before trying again'
     : 'Your browser is locked';
 
   const submitHandler = mode === 'setup' ? handleSetup : handleUnlock;
@@ -297,7 +433,6 @@ export function LockScreen({ onHide }: LockScreenProps) {
   return (
     <>
       <style>{KEYFRAMES}</style>
-      {/* ── Full-screen overlay ── */}
       <div style={{
         position: 'fixed', inset: 0,
         zIndex: 2147483647,
@@ -308,26 +443,32 @@ export function LockScreen({ onHide }: LockScreenProps) {
         {/* Background gradient */}
         <div style={{
           position: 'absolute', inset: 0,
-          background: 'linear-gradient(145deg, #0d0b1e 0%, #130828 45%, #0d0b1e 100%)',
+          background: mode === 'cooldown'
+            ? 'linear-gradient(145deg, #1a0a0a 0%, #200d0d 45%, #1a0a0a 100%)'
+            : 'linear-gradient(145deg, #0d0b1e 0%, #130828 45%, #0d0b1e 100%)',
         }} />
 
-        {/* Animated blobs */}
+        {/* Blobs */}
         <div className="bv-blob-1" style={{
           position: 'absolute', top: '15%', left: '10%',
           width: 520, height: 520, borderRadius: '50%', filter: 'blur(80px)',
-          background: 'radial-gradient(circle, rgba(124,58,237,0.4) 0%, transparent 70%)',
+          background: mode === 'cooldown'
+            ? 'radial-gradient(circle, rgba(239,68,68,0.3) 0%, transparent 70%)'
+            : 'radial-gradient(circle, rgba(124,58,237,0.4) 0%, transparent 70%)',
         }} />
         <div className="bv-blob-2" style={{
           position: 'absolute', bottom: '10%', right: '8%',
           width: 440, height: 440, borderRadius: '50%', filter: 'blur(80px)',
-          background: 'radial-gradient(circle, rgba(99,102,241,0.35) 0%, transparent 70%)',
+          background: mode === 'cooldown'
+            ? 'radial-gradient(circle, rgba(249,115,22,0.25) 0%, transparent 70%)'
+            : 'radial-gradient(circle, rgba(99,102,241,0.35) 0%, transparent 70%)',
         }} />
 
         {/* Content */}
         <div style={{ position: 'relative', zIndex: 1, width: '100%', maxWidth: 420, padding: '0 24px', textAlign: 'center' }}>
           {/* Clock */}
           <div style={{ marginBottom: 32 }}>
-            <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'center', gap: 0 }}>
+            <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'center' }}>
               <span style={{ fontSize: 80, fontWeight: 200, color: 'white', letterSpacing: '-3px', lineHeight: 1 }}>
                 {hours}:{minutes}
               </span>
@@ -340,19 +481,33 @@ export function LockScreen({ onHide }: LockScreenProps) {
             </div>
           </div>
 
-          {/* Glassmorphism card */}
+          {/* Card */}
           <div className={`bv-card-enter${isShaking ? ' bv-shake' : ''}`} style={{
             background: 'rgba(255,255,255,0.04)',
             backdropFilter: 'blur(40px)',
             WebkitBackdropFilter: 'blur(40px)',
-            border: '1px solid rgba(255,255,255,0.08)',
+            border: mode === 'cooldown' ? '1px solid rgba(239,68,68,0.15)' : '1px solid rgba(255,255,255,0.08)',
             borderRadius: 24,
             padding: 32,
             boxShadow: '0 32px 64px rgba(0,0,0,0.6), 0 0 0 1px rgba(255,255,255,0.03) inset',
           }}>
             {/* Logo */}
             <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 16 }}>
-              <ShieldIcon />
+              {mode === 'cooldown' ? (
+                <div style={{
+                  width: 56, height: 56,
+                  background: 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)',
+                  borderRadius: 18, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  boxShadow: '0 8px 24px rgba(239,68,68,0.4)',
+                }}>
+                  <svg width="28" height="28" viewBox="0 0 24 24" fill="none">
+                    <path d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z"
+                      stroke="white" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round"/>
+                  </svg>
+                </div>
+              ) : (
+                <ShieldIcon />
+              )}
             </div>
 
             <h1 style={{ color: 'white', fontSize: 18, fontWeight: 700, margin: '0 0 6px', letterSpacing: '-0.3px' }}>
@@ -362,8 +517,24 @@ export function LockScreen({ onHide }: LockScreenProps) {
               {modeSubtitle}
             </p>
 
+            {/* ── Cooldown mode (Day 13) ── */}
+            {mode === 'cooldown' && (
+              <>
+                <CooldownRing remainingMs={cooldownRemainingMs} totalMs={COOLDOWN_TOTAL_MS} />
+                <div style={{
+                  background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.18)',
+                  borderRadius: 12, padding: '12px 16px',
+                }}>
+                  <p style={{ color: 'rgba(255,255,255,0.6)', fontSize: 12, margin: 0, lineHeight: 1.6 }}>
+                    Too many failed attempts. Password entry is temporarily disabled to protect your data.
+                    You can try again in <strong style={{ color: '#fca5a5' }}>{formatSeconds(cooldownRemainingMs)}</strong>.
+                  </p>
+                </div>
+              </>
+            )}
+
             {/* ── Unlock / Setup forms ── */}
-            {mode !== 'forgot' && (
+            {(mode === 'unlock' || mode === 'setup') && (
               <>
                 <PasswordField
                   id="bv-password"
@@ -386,6 +557,33 @@ export function LockScreen({ onHide }: LockScreenProps) {
                     showPassword={showPassword}
                     onToggleShow={() => setShowPassword((v) => !v)}
                   />
+                )}
+
+                {/* Attempts remaining indicator (Day 12) */}
+                {mode === 'unlock' && remainingAttempts !== null && remainingAttempts < maxAttempts && (
+                  <div style={{
+                    display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+                    marginBottom: 10,
+                  }}>
+                    {/* Pip indicators */}
+                    <div style={{ display: 'flex', gap: 4 }}>
+                      {Array.from({ length: maxAttempts }).map((_, i) => (
+                        <div key={i} style={{
+                          width: 6, height: 6, borderRadius: '50%',
+                          background: i < remainingAttempts
+                            ? (remainingAttempts <= 1 ? '#ef4444' : remainingAttempts <= 2 ? '#f97316' : '#a78bfa')
+                            : 'rgba(255,255,255,0.15)',
+                          transition: 'background 0.3s',
+                        }} />
+                      ))}
+                    </div>
+                    <span style={{
+                      color: remainingAttempts <= 1 ? '#fca5a5' : remainingAttempts <= 2 ? '#fdba74' : 'rgba(255,255,255,0.4)',
+                      fontSize: 11,
+                    }}>
+                      {remainingAttempts} attempt{remainingAttempts !== 1 ? 's' : ''} remaining
+                    </span>
+                  </div>
                 )}
 
                 {/* Error banner */}
@@ -441,7 +639,7 @@ export function LockScreen({ onHide }: LockScreenProps) {
               </>
             )}
 
-            {/* ── Forgot password ── */}
+            {/* ── Forgot mode ── */}
             {mode === 'forgot' && (
               <>
                 <div style={{

@@ -2,7 +2,8 @@
  * Service Worker Entry Point — background/index.ts
  *
  * Initialises the message router, lock state, and idle watcher on startup.
- * Routes: GET_STATE, LOCK_BROWSER, UNLOCK_BROWSER, SET_PASSWORD, UPDATE_SETTINGS
+ * Routes: GET_STATE, LOCK_BROWSER, UNLOCK_BROWSER, SET_PASSWORD,
+ *         UPDATE_SETTINGS, GET_ACTIVITY_LOG
  */
 
 import { MessageRouter } from './messageRouter';
@@ -11,6 +12,7 @@ import { startIdleWatcher, stopIdleWatcher } from './idleWatcher';
 import { storage } from '@/lib/storage';
 import { STORAGE_KEYS, DEFAULT_USER_SETTINGS, DEFAULT_AUTH_STATE } from '@/lib/constants';
 import { generateSalt, hashPassword } from '@/lib/crypto';
+import { getActivityLog } from '@/lib/activityLog';
 import type { UserSettings, AuthState } from '@/types';
 
 // ─────────────────────────────────────────────────────────────
@@ -34,13 +36,17 @@ async function initializeState(): Promise<void> {
 // Message Routes
 // ─────────────────────────────────────────────────────────────
 
-/** Returns both the current LockState and AuthState */
+/** Returns LockState, AuthState, and the maxAttempts setting */
 router.on('GET_STATE', async () => {
   const lockState = await getLockStatus();
   const authState =
     (await storage.getItem<AuthState>(STORAGE_KEYS.AUTH_STATE)) ??
     { ...DEFAULT_AUTH_STATE };
-  return { lockState, authState };
+  const settings =
+    (await storage.getItem<UserSettings>(STORAGE_KEYS.SETTINGS)) ??
+    DEFAULT_USER_SETTINGS;
+
+  return { lockState, authState, maxAttempts: settings.maxAttempts };
 });
 
 /** Locks the browser and broadcasts the overlay to all tabs */
@@ -51,16 +57,20 @@ router.on('LOCK_BROWSER', async () => {
 
 /**
  * Unlocks the browser after verifying the provided password.
+ * Enforces maxAttempts limit and cooldown from settings.
  * Payload: { password: string }
  */
 router.on('UNLOCK_BROWSER', async (payload: { password?: string }) => {
   const password = payload?.password ?? '';
-  return await unlockBrowser(password);
+  const settings =
+    (await storage.getItem<UserSettings>(STORAGE_KEYS.SETTINGS)) ??
+    DEFAULT_USER_SETTINGS;
+
+  return await unlockBrowser(password, settings.maxAttempts);
 });
 
 /**
- * Stores a new password (first-time setup or password change).
- * Hashes with PBKDF2, stores hash + salt, marks hasPassword = true.
+ * Stores a new password (first-time setup).
  * Payload: { password: string }
  */
 router.on('SET_PASSWORD', async (payload: { password?: string }) => {
@@ -75,7 +85,6 @@ router.on('SET_PASSWORD', async (payload: { password?: string }) => {
   await storage.setItem('vault_password_hash', hash);
   await storage.setItem('vault_password_salt', salt);
 
-  // Mark password as configured in auth state
   const authState: AuthState =
     (await storage.getItem<AuthState>(STORAGE_KEYS.AUTH_STATE)) ??
     { ...DEFAULT_AUTH_STATE };
@@ -102,6 +111,11 @@ router.on('UPDATE_SETTINGS', async (payload: Partial<UserSettings>) => {
 
   console.log('[BrowserVault] Settings updated:', updated);
   return { success: true, settings: updated };
+});
+
+/** Returns the full activity log */
+router.on('GET_ACTIVITY_LOG', async () => {
+  return await getActivityLog();
 });
 
 // ─────────────────────────────────────────────────────────────

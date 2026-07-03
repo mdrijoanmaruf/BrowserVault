@@ -9,7 +9,8 @@
   "permissions": [
     "storage",
     "idle",
-    "tabs"
+    "tabs",
+    "notifications"
   ],
   "content_scripts": [
     {

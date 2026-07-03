@@ -1,15 +1,28 @@
 /**
- * Lock Controller — Day 6
+ * Lock Controller — Days 6 + 12 + 13
  *
  * Core functions for locking/unlocking the browser.
- * Persists lock state to chrome.storage.local and broadcasts
+ * Persists LockState to chrome.storage.local and broadcasts
  * overlay messages to all open tabs.
+ *
+ * Day 12 additions:
+ *  - unlockBrowser() accepts maxAttempts from settings
+ *  - Returns remainingAttempts in UnlockResult
+ *
+ * Day 13 additions:
+ *  - When failedAttemptCount reaches maxAttempts, sets cooldownExpiresAt
+ *  - unlockBrowser() checks for active cooldown before verifying password
+ *  - Logs FAILED_ATTEMPT and LOCK events to the activity log
  */
 
 import { storage } from '@/lib/storage';
 import { verifyPassword } from '@/lib/crypto';
 import { STORAGE_KEYS, DEFAULT_LOCK_STATE } from '@/lib/constants';
+import { logActivity } from '@/lib/activityLog';
 import type { LockState } from '@/types';
+
+/** Default cooldown duration when max attempts are exhausted (5 minutes) */
+const DEFAULT_COOLDOWN_MS = 5 * 60 * 1000;
 
 // ─────────────────────────────────────────────────────────────
 // Internal helpers
@@ -26,7 +39,7 @@ async function saveLockState(state: LockState): Promise<void> {
 
 /**
  * Broadcasts a message to every non-chrome:// tab.
- * Failures on individual tabs are silently swallowed (e.g. restricted pages).
+ * Failures on individual tabs are silently swallowed.
  */
 async function broadcastToAllTabs(message: Record<string, unknown>): Promise<void> {
   const tabs = await chrome.tabs.query({});
@@ -41,53 +54,87 @@ async function broadcastToAllTabs(message: Record<string, unknown>): Promise<voi
 }
 
 // ─────────────────────────────────────────────────────────────
-// Public API
+// Public types
 // ─────────────────────────────────────────────────────────────
 
 export interface UnlockResult {
   success: boolean;
-  /** Set when unlocking fails due to wrong password */
+  /** Remaining attempts before cooldown kicks in */
+  remainingAttempts?: number;
+  /** Current failed attempt count */
   failedAttemptCount?: number;
-  /** Set when no password has been configured yet */
+  /** True when a cooldown is active — provide cooldownExpiresAt for the countdown */
+  cooldownActive?: boolean;
+  cooldownExpiresAt?: number;
+  /** True when no password has been configured yet */
   noPasswordSet?: boolean;
   error?: string;
 }
 
+// ─────────────────────────────────────────────────────────────
+// Public API
+// ─────────────────────────────────────────────────────────────
+
 /**
  * Locks the browser:
- * 1. Persists isLocked = true in storage
- * 2. Broadcasts SHOW_LOCK_OVERLAY to all open tabs
+ * 1. Persists isLocked = true
+ * 2. Broadcasts SHOW_LOCK_OVERLAY to all tabs
+ * 3. Logs LOCK event to the activity log
  */
 export async function lockBrowser(): Promise<void> {
   const state = await getLockState();
   state.isLocked = true;
   await saveLockState(state);
 
+  await logActivity('LOCK');
   console.log('[BrowserVault] Browser locked — broadcasting overlay');
   await broadcastToAllTabs({ action: 'SHOW_LOCK_OVERLAY' });
 }
 
 /**
- * Unlocks the browser:
- * 1. Verifies the supplied password against the stored hash + salt
- * 2. On success: persists isLocked = false, resets failedAttemptCount, broadcasts HIDE_LOCK_OVERLAY
- * 3. On failure: increments failedAttemptCount in storage and returns the updated count
+ * Attempts to unlock the browser:
+ * 1. Rejects immediately if a cooldown is still active
+ * 2. Verifies the password
+ * 3. On success → resets state, broadcasts HIDE_LOCK_OVERLAY, logs UNLOCK
+ * 4. On failure → increments failedAttemptCount
+ *    - If count reaches maxAttempts → sets cooldownExpiresAt, logs LOCKOUT
  *
- * @param password - The plain-text password supplied by the user
+ * @param password    Plain-text password from the user
+ * @param maxAttempts Maximum allowed wrong attempts before cooldown (from settings)
+ * @param cooldownMs  Cooldown duration in ms (defaults to 5 minutes)
  */
-export async function unlockBrowser(password: string): Promise<UnlockResult> {
-  // Load stored credentials
+export async function unlockBrowser(
+  password: string,
+  maxAttempts: number = 5,
+  cooldownMs: number = DEFAULT_COOLDOWN_MS
+): Promise<UnlockResult> {
   const storedHash = await storage.getItem<string>('vault_password_hash');
   const storedSalt = await storage.getItem<string>('vault_password_salt');
 
   if (!storedHash || !storedSalt) {
-    // First-time setup — no password configured yet (handled in Day 10 flow)
     return { success: false, noPasswordSet: true };
   }
 
-  const isValid = await verifyPassword(password, storedHash, storedSalt);
-
   const state = await getLockState();
+
+  // ── Cooldown check (Day 13) ──────────────────────────────
+  if (state.cooldownExpiresAt !== null && Date.now() < state.cooldownExpiresAt) {
+    return {
+      success: false,
+      cooldownActive: true,
+      cooldownExpiresAt: state.cooldownExpiresAt,
+    };
+  }
+
+  // If cooldown has expired, clear it
+  if (state.cooldownExpiresAt !== null && Date.now() >= state.cooldownExpiresAt) {
+    state.cooldownExpiresAt = null;
+    state.failedAttemptCount = 0;
+    await saveLockState(state);
+  }
+
+  // ── Password verification ────────────────────────────────
+  const isValid = await verifyPassword(password, storedHash, storedSalt);
 
   if (isValid) {
     state.isLocked = false;
@@ -95,19 +142,43 @@ export async function unlockBrowser(password: string): Promise<UnlockResult> {
     state.cooldownExpiresAt = null;
     await saveLockState(state);
 
+    await logActivity('UNLOCK');
     console.log('[BrowserVault] Browser unlocked — removing overlay');
     await broadcastToAllTabs({ action: 'HIDE_LOCK_OVERLAY' });
 
     return { success: true };
-  } else {
-    state.failedAttemptCount += 1;
+  }
+
+  // ── Failed attempt ───────────────────────────────────────
+  state.failedAttemptCount += 1;
+  await logActivity('FAILED_ATTEMPT', `Attempt ${state.failedAttemptCount} of ${maxAttempts}`);
+
+  if (state.failedAttemptCount >= maxAttempts) {
+    // Trigger cooldown (Day 13)
+    state.cooldownExpiresAt = Date.now() + cooldownMs;
     await saveLockState(state);
 
-    console.warn(
-      `[BrowserVault] Unlock failed. Attempt ${state.failedAttemptCount}`
-    );
-    return { success: false, failedAttemptCount: state.failedAttemptCount };
+    await logActivity('SETTINGS_CHANGE', `Cooldown triggered after ${maxAttempts} failed attempts`);
+    console.warn(`[BrowserVault] Max attempts reached — cooldown until ${new Date(state.cooldownExpiresAt).toISOString()}`);
+
+    return {
+      success: false,
+      cooldownActive: true,
+      cooldownExpiresAt: state.cooldownExpiresAt,
+      failedAttemptCount: state.failedAttemptCount,
+    };
   }
+
+  await saveLockState(state);
+
+  const remaining = maxAttempts - state.failedAttemptCount;
+  console.warn(`[BrowserVault] Unlock failed. Attempt ${state.failedAttemptCount}. ${remaining} remaining.`);
+
+  return {
+    success: false,
+    failedAttemptCount: state.failedAttemptCount,
+    remainingAttempts: remaining,
+  };
 }
 
 /**

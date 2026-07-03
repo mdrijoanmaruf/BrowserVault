@@ -207,6 +207,32 @@ router.on('UPDATE_SETTINGS', async (payload: Partial<UserSettings>) => {
 });
 
 /**
+ * Resets all extension data, removes password, and restores default settings.
+ */
+router.on('FACTORY_RESET', async () => {
+  console.log('[BrowserVault] Executing FACTORY_RESET');
+  try {
+    stopIdleWatcher();
+    await chrome.storage.local.clear();
+    await chrome.storage.session.clear();
+    
+    // Broadcast unlock to all tabs in case lock screen is visible
+    await chrome.tabs.query({}).then(tabs => {
+      tabs.forEach(tab => {
+        if (tab.id && tab.url && !tab.url.startsWith('chrome://')) {
+          chrome.tabs.sendMessage(tab.id, { action: 'HIDE_LOCK_OVERLAY' }).catch(() => {});
+        }
+      });
+    });
+
+    return { success: true };
+  } catch (err) {
+    console.error('Factory reset failed:', err);
+    return { success: false, error: 'Failed to reset extension' };
+  }
+});
+
+/**
  * Requests an OTP to be sent to an email.
  * If payload.email is provided, sends to that email (for verification).
  * Otherwise sends to the stored recoveryEmail (for password reset).
@@ -339,73 +365,63 @@ initializeState();
 // Browser Startup Lock Enforcement
 // ─────────────────────────────────────────────────────────────
 
-const LOCK_PAGE_URL = chrome.runtime.getURL('lock.html');
-
 /** Returns true if the browser is currently locked */
 async function isCurrentlyLocked(): Promise<boolean> {
   const state = await storage.getItem<{ isLocked?: boolean }>(STORAGE_KEYS.LOCK_STATE);
   return state?.isLocked === true;
 }
 
-/**
- * On browser startup: if locked, redirect all existing (restored session) tabs
- * to the lock page. Also broadcast SHOW_LOCK_OVERLAY to content-script tabs.
- */
 chrome.runtime.onStartup.addListener(async () => {
   console.log('[BrowserVault] onStartup fired');
   if (!(await isCurrentlyLocked())) return;
+  await lockBrowser();
+});
 
-  console.log('[BrowserVault] Browser is locked — redirecting all tabs to lock page');
-  const tabs = await chrome.tabs.query({});
-  for (const tab of tabs) {
-    if (!tab.id) continue;
-    const url = tab.url ?? '';
-    // Don't redirect tabs that are already on the lock page
-    if (url.startsWith(LOCK_PAGE_URL)) continue;
-    // For chrome:// pages (including newtab) we can't inject content scripts,
-    // so redirect them directly to the lock page
-    if (url.startsWith('chrome://') || url === '' || url === 'about:blank') {
-      chrome.tabs.update(tab.id, { url: LOCK_PAGE_URL }).catch(() => {});
-    } else {
-      // For http/https pages the content script overlay will show; also redirect as backup
-      const encodedRedirect = encodeURIComponent(url);
-      chrome.tabs.update(tab.id, { url: `${LOCK_PAGE_URL}?redirect=${encodedRedirect}` }).catch(() => {});
+/**
+ * Intercept new window creation. Minimize the new window and enforce lock focus.
+ */
+chrome.windows.onCreated.addListener(async (window) => {
+  if (!(await isCurrentlyLocked())) return;
+
+  // Add a small delay to allow createLockWindow to save vault_lock_window_id
+  setTimeout(async () => {
+    const sessionData = await chrome.storage.session.get('vault_lock_window_id');
+    if (window.id === sessionData.vault_lock_window_id) return;
+
+    try {
+      if (window.id) {
+        await chrome.windows.update(window.id, { state: 'minimized' });
+      }
+      const lockWindowId = sessionData.vault_lock_window_id as number | undefined;
+      if (lockWindowId) {
+        await chrome.windows.update(lockWindowId, { focused: true });
+      }
+    } catch (e) {}
+  }, 250);
+});
+
+/**
+ * Force focus on the lock window if the browser is locked and another window gets focus.
+ */
+chrome.windows.onFocusChanged.addListener(async (windowId) => {
+  if (windowId === chrome.windows.WINDOW_ID_NONE) return;
+  if (!(await isCurrentlyLocked())) return;
+
+  const sessionData = await chrome.storage.session.get('vault_lock_window_id');
+  const lockWindowId = sessionData.vault_lock_window_id as number | undefined;
+
+  if (lockWindowId && windowId !== lockWindowId) {
+    try {
+      await chrome.windows.update(lockWindowId, { focused: true });
+    } catch (e) {
+      // The lock window might have been closed somehow. Recreate it.
+      await lockBrowser();
     }
   }
 });
 
 /**
- * Intercept new window creation (useful for when Chrome is running in the background
- * and a new window is opened, which doesn't trigger onStartup).
- */
-chrome.windows.onCreated.addListener(async (window) => {
-  if (!(await isCurrentlyLocked())) return;
-
-  // Short delay to allow tabs to be populated in the new window
-  setTimeout(async () => {
-    try {
-      const tabs = await chrome.tabs.query({ windowId: window.id });
-      for (const tab of tabs) {
-        if (!tab.id) continue;
-        const url = tab.url ?? tab.pendingUrl ?? '';
-        if (url.startsWith(LOCK_PAGE_URL)) continue;
-
-        if (url.startsWith('chrome://') || url === '' || url === 'about:blank') {
-          chrome.tabs.update(tab.id, { url: LOCK_PAGE_URL }).catch(() => {});
-        } else {
-          const encodedRedirect = encodeURIComponent(url);
-          chrome.tabs.update(tab.id, { url: `${LOCK_PAGE_URL}?redirect=${encodedRedirect}` }).catch(() => {});
-        }
-      }
-    } catch {
-      // Ignore errors if window closes quickly
-    }
-  }, 100);
-});
-
-/**
  * Intercept window close to lock the browser when the last window is closed.
- * This ensures the browser locks even if Chrome continues running in the background.
  */
 chrome.windows.onRemoved.addListener(async () => {
   try {
@@ -420,39 +436,5 @@ chrome.windows.onRemoved.addListener(async () => {
   } catch (e) {
     console.error('Error on windows.onRemoved:', e);
   }
-});
-
-/**
- * Intercept new tab creation while locked:
- * Redirect the new tab to the lock page immediately.
- */
-chrome.tabs.onCreated.addListener(async (tab) => {
-  if (!tab.id) return;
-  if (!(await isCurrentlyLocked())) return;
-
-  const url = tab.url ?? tab.pendingUrl ?? '';
-  // Don't redirect if already going to the lock page
-  if (url.startsWith(LOCK_PAGE_URL)) return;
-
-  const encodedRedirect = url && url.startsWith('http') ? `?redirect=${encodeURIComponent(url)}` : '';
-  chrome.tabs.update(tab.id, { url: `${LOCK_PAGE_URL}${encodedRedirect}` }).catch(() => {});
-});
-
-/**
- * Intercept navigation while locked (catches address-bar navigation).
- */
-chrome.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
-  // Only act when a new URL starts loading
-  if (changeInfo.status !== 'loading') return;
-  const url = changeInfo.url ?? tab.url ?? '';
-  // Ignore extension pages and chrome:// pages
-  if (!url || url.startsWith('chrome-extension://') || url.startsWith('chrome://')) return;
-  // Already on lock page
-  if (url.startsWith(LOCK_PAGE_URL)) return;
-
-  if (!(await isCurrentlyLocked())) return;
-
-  const encodedRedirect = url.startsWith('http') ? `?redirect=${encodeURIComponent(url)}` : '';
-  chrome.tabs.update(tabId, { url: `${LOCK_PAGE_URL}${encodedRedirect}` }).catch(() => {});
 });
 

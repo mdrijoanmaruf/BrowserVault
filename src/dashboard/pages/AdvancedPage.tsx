@@ -15,9 +15,12 @@ export function AdvancedPage() {
   const handleFactoryReset = async () => {
     if (window.confirm("Are you sure you want to reset BrowserVault? This will remove your password and all settings.")) {
       try {
-        await chrome.storage.local.clear();
-        await chrome.storage.session.clear();
-        window.location.reload();
+        const response = await chrome.runtime.sendMessage({ action: 'FACTORY_RESET' });
+        if (response?.success) {
+          window.location.reload();
+        } else {
+          addToast(response?.error || 'Failed to reset extension.', 'error');
+        }
       } catch (err) {
         addToast('Failed to reset extension.', 'error');
       }

@@ -78,8 +78,9 @@ export interface UnlockResult {
 /**
  * Locks the browser:
  * 1. Persists isLocked = true
- * 2. Broadcasts SHOW_LOCK_OVERLAY to all tabs
- * 3. Logs LOCK event to the activity log
+ * 2. Minimizes all existing windows and creates a fullscreen lock window
+ * 3. Broadcasts SHOW_LOCK_OVERLAY to all tabs as backup
+ * 4. Logs LOCK event to the activity log
  */
 export async function lockBrowser(): Promise<void> {
   const state = await getLockState();
@@ -87,15 +88,72 @@ export async function lockBrowser(): Promise<void> {
   await saveLockState(state);
 
   await logActivity('LOCK');
-  console.log('[BrowserVault] Browser locked — broadcasting overlay');
+  console.log('[BrowserVault] Browser locked — spawning modal window');
+
+  // Minimize all existing windows and record their original state
+  const windows = await chrome.windows.getAll();
+  const restoredStates: Record<number, string> = {};
+  for (const win of windows) {
+    if (win.id && win.state && win.state !== 'minimized' && win.type !== 'devtools') {
+      restoredStates[win.id] = win.state;
+      try {
+        await chrome.windows.update(win.id, { state: 'minimized' });
+      } catch (e) {}
+    }
+  }
+
+  await chrome.storage.session.set({ vault_restored_states: restoredStates });
+
+  // Check if lock window already exists
+  const sessionData = await chrome.storage.session.get('vault_lock_window_id');
+  if (sessionData.vault_lock_window_id) {
+    const lockWindowId = sessionData.vault_lock_window_id as number;
+    try {
+      await chrome.windows.update(lockWindowId, { focused: true });
+    } catch (e) {
+      // Window doesn't exist anymore, we will recreate
+      await createLockWindow();
+    }
+  } else {
+    await createLockWindow();
+  }
+
   await broadcastToAllTabs({ action: 'SHOW_LOCK_OVERLAY' });
+}
+
+async function createLockWindow() {
+  let lockWin: chrome.windows.Window | undefined;
+  try {
+    lockWin = await chrome.windows.create({
+      url: chrome.runtime.getURL('lock.html'),
+      type: 'popup',
+      state: 'fullscreen',
+      focused: true,
+    });
+  } catch (e) {
+    console.warn('[BrowserVault] Fullscreen popup failed, falling back to maximized normal window', e);
+    try {
+      lockWin = await chrome.windows.create({
+        url: chrome.runtime.getURL('lock.html'),
+        type: 'normal',
+        state: 'maximized',
+        focused: true,
+      });
+    } catch (e2) {
+      console.error('[BrowserVault] Lock window creation failed entirely', e2);
+    }
+  }
+
+  if (lockWin?.id) {
+    await chrome.storage.session.set({ vault_lock_window_id: lockWin.id });
+  }
 }
 
 /**
  * Attempts to unlock the browser:
  * 1. Rejects immediately if a cooldown is still active
  * 2. Verifies the password
- * 3. On success → resets state, broadcasts HIDE_LOCK_OVERLAY, logs UNLOCK
+ * 3. On success → resets state, closes modal, restores windows, logs UNLOCK
  * 4. On failure → increments failedAttemptCount
  *    - If count reaches maxAttempts → sets cooldownExpiresAt, logs LOCKOUT
  *
@@ -167,7 +225,28 @@ export async function unlockBrowser(
     await saveLockState(state);
 
     await logActivity('UNLOCK');
-    console.log('[BrowserVault] Browser unlocked — removing overlay');
+    console.log('[BrowserVault] Browser unlocked — removing modal');
+
+    // Remove the lock window
+    const sessionData = await chrome.storage.session.get(['vault_lock_window_id', 'vault_restored_states']);
+    if (sessionData.vault_lock_window_id) {
+      const lockWindowId = sessionData.vault_lock_window_id as number;
+      try {
+        await chrome.windows.remove(lockWindowId);
+      } catch (e) {}
+    }
+
+    // Restore minimized windows
+    if (sessionData.vault_restored_states) {
+      for (const [idStr, windowState] of Object.entries(sessionData.vault_restored_states)) {
+        try {
+          const id = parseInt(idStr, 10);
+          await chrome.windows.update(id, { state: windowState as any });
+        } catch (e) {}
+      }
+    }
+
+    await chrome.storage.session.remove(['vault_lock_window_id', 'vault_restored_states']);
     await broadcastToAllTabs({ action: 'HIDE_LOCK_OVERLAY' });
 
     return { success: true };

@@ -12,15 +12,9 @@ import { LockScreen } from '@/components/LockScreen';
 import '@/globals.css';
 
 function onHide() {
-  // After successful unlock, check if there's a redirect URL
-  const params = new URLSearchParams(window.location.search);
-  const redirect = params.get('redirect');
-  if (redirect && redirect.startsWith('http')) {
-    window.location.href = redirect;
-  } else {
-    // Go to new tab or close the lock tab
-    window.location.href = 'chrome://newtab';
-  }
+  // The background script (lockController) handles closing the modal window,
+  // but as a fallback we attempt to close this window.
+  window.close();
 }
 
 // React to unlocks from other tabs

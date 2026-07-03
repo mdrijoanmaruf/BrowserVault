@@ -7,7 +7,9 @@
     "default_popup": "index.html"
   },
   "permissions": [
-    "storage"
+    "storage",
+    "idle",
+    "tabs"
   ],
   "background": {
     "service_worker": "src/background/index.ts",

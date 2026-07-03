@@ -14,17 +14,19 @@ interface LockButtonProps {
 export function LockButton({ isLocked, isLoading, onClick }: LockButtonProps) {
   if (isLocked) {
     return (
-      <div className="w-full rounded-2xl bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10 p-5 text-center transition-colors duration-200">
-        <div className="flex justify-center mb-3">
-          <div className="w-12 h-12 rounded-xl bg-red-50 dark:bg-red-500/15 border border-red-200 dark:border-red-500/20 flex items-center justify-center">
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" className="text-red-600 dark:text-red-400">
-              <path d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z"
-                stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round"/>
-            </svg>
-          </div>
+      <div className="w-full relative overflow-hidden rounded-[20px] bg-red-50/80 border border-red-100 p-8 text-center flex flex-col items-center justify-center">
+        {/* Subtle dot pattern background */}
+        <div className="absolute inset-0 opacity-[0.15]" style={{ backgroundImage: 'radial-gradient(circle at 2px 2px, #ef4444 1.5px, transparent 0)', backgroundSize: '24px 24px', backgroundPosition: 'center center' }}></div>
+        
+        <div className="relative w-14 h-14 rounded-full bg-red-100 flex items-center justify-center mb-4">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#ef4444" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <rect x="5" y="11" width="14" height="10" rx="2" ry="2"></rect>
+            <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+          </svg>
         </div>
-        <p className="text-slate-500 dark:text-white/50 text-xs leading-relaxed">
-          Browser is locked. Use the on-screen lock overlay to enter your password.
+        <h2 className="relative text-lg font-bold text-slate-900 mb-1.5">Browser is locked</h2>
+        <p className="relative text-[13px] text-slate-500 max-w-[200px] leading-relaxed">
+          Use the on-screen lock overlay to enter your password and unlock.
         </p>
       </div>
     );
@@ -35,31 +37,28 @@ export function LockButton({ isLocked, isLoading, onClick }: LockButtonProps) {
       id="bv-lock-btn"
       disabled={isLocked || isLoading}
       onClick={onClick}
-      className={`
-        w-full group relative flex items-center justify-center gap-3 px-6 py-4 rounded-2xl font-bold text-sm
-        transition-all duration-300 overflow-hidden shadow-xl focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-slate-50 dark:focus:ring-offset-[#0f0b22] focus:ring-violet-500
-        ${isLocked 
-          ? 'bg-slate-100 dark:bg-white/[0.03] text-slate-400 dark:text-white/20 cursor-not-allowed border border-slate-200 dark:border-white/[0.05]'
-          : 'bg-gradient-to-r from-violet-600 to-fuchsia-600 hover:from-violet-500 hover:to-fuchsia-500 text-white shadow-violet-900/30 dark:shadow-violet-900/40 hover:shadow-violet-900/50 hover:scale-[1.02]'}
-      `}
+      className="w-full group relative flex flex-col items-center justify-center py-7 rounded-[20px] bg-gradient-to-r from-[#5a8bf7] to-[#865df5] hover:scale-[1.01] hover:shadow-lg hover:shadow-[#865df5]/20 transition-all duration-300 text-white overflow-hidden"
     >
-      {isLoading ? (
-        <>
-          <svg className="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24">
+      <div className="flex items-center justify-center gap-3">
+        {isLoading ? (
+          <svg className="animate-spin w-8 h-8 opacity-90" fill="none" viewBox="0 0 24 24">
             <circle cx="12" cy="12" r="10" stroke="rgba(255,255,255,0.25)" strokeWidth="3"/>
             <path d="M12 2a10 10 0 0110 10" stroke="white" strokeWidth="3" strokeLinecap="round"/>
           </svg>
-          Locking…
-        </>
-      ) : (
-        <>
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-              d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z"/>
+        ) : (
+          <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="opacity-90">
+            <rect x="5" y="11" width="14" height="10" rx="2" ry="2"></rect>
+            <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+            <circle cx="12" cy="16" r="1" fill="currentColor"></circle>
           </svg>
-          Lock Browser Now
-        </>
-      )}
+        )}
+        <span className="text-[22px] font-bold tracking-wide">
+          {isLoading ? 'Locking...' : 'Lock Browser Now'}
+        </span>
+      </div>
+      <span className="text-[13px] font-medium text-white/80 mt-1.5">
+        Secure your browser and protect your data
+      </span>
     </button>
   );
 }

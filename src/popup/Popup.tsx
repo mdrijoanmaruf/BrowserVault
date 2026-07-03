@@ -161,31 +161,31 @@ export function Popup() {
 
   // ── Render ──────────────────────────────────────────────────
   return (
-    <div className="min-h-[220px] bg-slate-50 dark:bg-gradient-to-b dark:from-[#0f0b22] dark:to-[#130d2a] text-slate-900 dark:text-white flex flex-col transition-colors duration-200">
+    <div className="min-h-[220px] bg-white text-slate-900 flex flex-col font-sans">
       {/* Header */}
-      <div className="flex items-center justify-between px-5 pt-5 pb-4 border-b border-slate-200 dark:border-white/[0.06]">
-        <div className="flex items-center gap-3">
+      <div className="flex items-center justify-between px-6 pt-6 pb-2">
+        <div className="flex items-center gap-3.5">
           <img
             src={chrome.runtime.getURL('icons/icon128.png')}
             alt="BrowserVault Logo"
-            className="w-8 h-8 flex-shrink-0 rounded-lg shadow shadow-purple-900/60"
+            className="w-[42px] h-[42px] flex-shrink-0"
           />
           <div>
-            <h1 className="text-sm font-bold text-slate-900 dark:text-white leading-none">BrowserVault</h1>
-            <p className="text-[10px] text-slate-500 dark:text-white/35 mt-0.5">Browser security</p>
+            <h1 className="text-[17px] font-bold text-slate-900 leading-tight">BrowserVault</h1>
+            <p className="text-[13px] text-slate-400 font-medium mt-0.5">Browser Security</p>
           </div>
         </div>
         {view === 'main' && <StatusBadge isLocked={isLocked} />}
       </div>
 
       {/* Body */}
-      <div className="flex-1 px-5 py-5 flex flex-col gap-4">
+      <div className="flex-1 px-6 py-4 flex flex-col">
 
         {/* Loading */}
         {view === 'loading' && (
           <div className="flex flex-col gap-3 animate-pulse">
-            <div className="h-14 bg-slate-200 dark:bg-white/5 rounded-2xl" />
-            <div className="h-8 bg-slate-100 dark:bg-white/[0.03] rounded-xl" />
+            <div className="h-20 bg-slate-100 rounded-3xl" />
+            <div className="h-12 bg-slate-50 rounded-2xl" />
           </div>
         )}
 
@@ -193,8 +193,8 @@ export function Popup() {
         {view === 'setup' && (
           <div className="flex flex-col gap-3">
             <div className="text-center mb-1">
-              <h2 className="text-sm font-bold text-slate-900 dark:text-violet-300">Welcome to BrowserVault</h2>
-              <p className="text-[11px] text-slate-500 dark:text-white/40 mt-1">Set a master password to secure your browser.</p>
+              <h2 className="text-sm font-bold text-slate-900">Welcome to BrowserVault</h2>
+              <p className="text-[11px] text-slate-500 mt-1">Set a master password to secure your browser.</p>
             </div>
 
             {/* Password input */}
@@ -205,12 +205,12 @@ export function Popup() {
                 onChange={(e) => { setPassword(e.target.value); setSetupError(''); }}
                 onKeyDown={(e) => e.key === 'Enter' && handleSetPassword()}
                 placeholder="New password (min. 8 characters)"
-                className="w-full bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-xl px-3 py-2.5 text-sm text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-white/25 outline-none focus:border-violet-400 dark:focus:border-violet-500 transition-colors pr-10"
+                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-sm text-slate-900 placeholder:text-slate-400 outline-none focus:border-violet-400 transition-colors pr-10"
               />
               <button
                 type="button"
                 onClick={() => setShowPw(v => !v)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 dark:text-white/30 hover:text-violet-500 transition-colors"
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-violet-500 transition-colors"
               >
                 {showPw ? (
                   <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M17.94 17.94A10.07 10.07 0 0112 20c-7 0-11-8-11-8a18.45 18.45 0 015.06-5.94M9.9 4.24A9.12 9.12 0 0112 4c7 0 11 8 11 8a18.5 18.5 0 01-2.16 3.19m-6.72-1.07a3 3 0 11-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
@@ -227,19 +227,19 @@ export function Popup() {
               onChange={(e) => { setConfirm(e.target.value); setSetupError(''); }}
               onKeyDown={(e) => e.key === 'Enter' && handleSetPassword()}
               placeholder="Confirm password"
-              className="w-full bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-xl px-3 py-2.5 text-sm text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-white/25 outline-none focus:border-violet-400 dark:focus:border-violet-500 transition-colors"
+              className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-sm text-slate-900 placeholder:text-slate-400 outline-none focus:border-violet-400 transition-colors"
             />
 
             {/* Error */}
             {setupError && (
-              <p className="text-red-500 dark:text-red-400 text-[11px] text-center">{setupError}</p>
+              <p className="text-red-500 text-[11px] text-center">{setupError}</p>
             )}
 
             {/* Submit */}
             <button
               onClick={handleSetPassword}
               disabled={saving || !password || !confirm}
-              className="w-full bg-violet-600 hover:bg-violet-700 disabled:bg-violet-600/50 disabled:cursor-not-allowed text-white text-sm font-semibold py-2.5 rounded-xl transition-colors flex items-center justify-center gap-2"
+              className="w-full bg-[#5a8bf7] hover:bg-[#4673d4] disabled:bg-slate-300 disabled:cursor-not-allowed text-white text-sm font-semibold py-3 rounded-xl transition-colors flex items-center justify-center gap-2 mt-2"
             >
               {saving ? (
                 <>
@@ -253,35 +253,42 @@ export function Popup() {
 
         {/* ── Main view ── */}
         {view === 'main' && (
-          <>
+          <div className="flex flex-col gap-4">
             {/* Lock error */}
             {lockError && (
-              <p className="text-red-500 dark:text-red-400 text-xs text-center">{lockError}</p>
+              <p className="text-red-500 text-xs text-center">{lockError}</p>
             )}
 
-            {/* Lock button */}
+            {/* Lock button area */}
             <LockButton
               isLocked={isLocked}
               isLoading={isLocking}
               onClick={isLocked ? handleUnlock : handleLock}
             />
 
-            {/* Idle info strip */}
-            {!isLocked && (
-              <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-slate-100 dark:bg-white/[0.03] border border-slate-200 dark:border-white/[0.05]">
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" className="text-slate-400 dark:text-white/25 flex-shrink-0">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z"/>
+            {/* Info and Settings */}
+            <div className="flex flex-col gap-3 w-full">
+              {/* Idle info strip */}
+              <div className="flex items-center justify-between px-4 py-3.5 rounded-2xl bg-white border border-slate-200 shadow-sm cursor-default hover:border-slate-300 transition-colors">
+                <div className="flex items-center gap-3">
+                  <div className="text-[#5a8bf7]">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <circle cx="12" cy="12" r="10"></circle>
+                      <polyline points="12 6 12 12 16 14"></polyline>
+                    </svg>
+                  </div>
+                  <span className="text-slate-800 text-[13px] font-medium">Idle lock is managed via Settings</span>
+                </div>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-slate-400">
+                  <path d="M9 18l6-6-6-6"></path>
                 </svg>
-                <span className="text-slate-500 dark:text-white/30 text-[11px]">Idle lock is managed via Settings</span>
               </div>
-            )}
-          </>
-        )}
-      </div>
 
-      {/* Footer */}
-      <div className="px-5 pb-5">
-        <QuickMenu />
+              {/* QuickMenu Settings Card */}
+              <QuickMenu />
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

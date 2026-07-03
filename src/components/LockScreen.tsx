@@ -134,6 +134,17 @@ export function PasswordField({
   placeholder: string; showPassword: boolean; onToggleShow: () => void; autoFocus?: boolean;
   styleVars?: any;
 }) {
+  const inputRef = React.useRef<HTMLInputElement>(null);
+
+  React.useEffect(() => {
+    if (autoFocus && inputRef.current) {
+      // Small timeout to ensure it works in Shadow DOM or slow renders
+      setTimeout(() => {
+        inputRef.current?.focus();
+      }, 50);
+    }
+  }, [autoFocus]);
+
   return (
     <div style={{ marginBottom: 16, ...styleVars }}>
       <div style={{
@@ -146,7 +157,14 @@ export function PasswordField({
         transition: 'all 0.2s',
         color: 'var(--text-main, white)',
       }}>
+        {/* Lock icon on the left (as in design) */}
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ color: 'var(--icon-color, rgba(15, 23, 42, 0.45))', marginRight: 12 }}>
+          <rect x="5" y="11" width="14" height="10" rx="2" ry="2"></rect>
+          <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+        </svg>
+
         <input
+          ref={inputRef}
           id={id}
           type={showPassword ? 'text' : 'password'}
           value={value}
@@ -169,7 +187,7 @@ export function PasswordField({
           onClick={onToggleShow}
           style={{
             background: 'transparent', border: 'none', outline: 'none',
-            padding: 4, cursor: 'pointer', color: 'inherit',
+            padding: 4, cursor: 'pointer', color: 'var(--icon-color, rgba(15, 23, 42, 0.45))',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
           }}
         >
@@ -569,16 +587,16 @@ export function LockScreen({ onHide }: LockScreenProps) {
 
   const isLight = theme === 'light';
   const c = {
-    bg: isLight ? 'linear-gradient(145deg, #f8fafc 0%, #e2e8f0 45%, #f8fafc 100%)' : 'linear-gradient(145deg, #0d0b1e 0%, #130828 45%, #0d0b1e 100%)',
-    bgCooldown: isLight ? 'linear-gradient(145deg, #fef2f2 0%, #fee2e2 45%, #fef2f2 100%)' : 'linear-gradient(145deg, #1a0a0a 0%, #200d0d 45%, #1a0a0a 100%)',
-    textMain: isLight ? '#0f172a' : 'white',
-    textMuted: isLight ? 'rgba(15, 23, 42, 0.45)' : 'rgba(255,255,255,0.45)',
-    textSubtle: isLight ? 'rgba(15, 23, 42, 0.6)' : 'rgba(255,255,255,0.6)',
-    glassBg: isLight ? 'rgba(255, 255, 255, 0.7)' : 'rgba(255, 255, 255, 0.04)',
-    glassBorder: isLight ? 'rgba(15, 23, 42, 0.08)' : 'rgba(255, 255, 255, 0.08)',
-    inputBg: isLight ? 'rgba(255, 255, 255, 0.9)' : 'rgba(255, 255, 255, 0.05)',
-    inputBorder: isLight ? 'rgba(15, 23, 42, 0.15)' : 'rgba(255, 255, 255, 0.15)',
-    iconBg: isLight ? 'linear-gradient(135deg, #8b5cf6, #c084fc)' : 'linear-gradient(135deg, #8b5cf6, #c084fc)',
+    bg: 'linear-gradient(135deg, #f0f4fd 0%, #ffffff 100%)',
+    bgCooldown: 'linear-gradient(145deg, #fef2f2 0%, #fee2e2 45%, #fef2f2 100%)',
+    textMain: '#0f172a',
+    textMuted: '#64748b',
+    textSubtle: '#94a3b8',
+    glassBg: '#ffffff',
+    glassBorder: 'rgba(15, 23, 42, 0.04)',
+    inputBg: '#fafafa',
+    inputBorder: 'rgba(15, 23, 42, 0.1)',
+    iconColor: '#94a3b8',
   };
 
   return (
@@ -592,19 +610,24 @@ export function LockScreen({ onHide }: LockScreenProps) {
         overflow: 'hidden',
         background: mode === 'cooldown' ? c.bgCooldown : c.bg,
       }}>
+        {/* Subtle dot patterns in background */}
+        <div style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, opacity: 0.4, backgroundImage: 'radial-gradient(#94a3b8 1px, transparent 0)', backgroundSize: '24px 24px', pointerEvents: 'none' }} />
+        <div style={{ position: 'absolute', top: '-10%', left: '-5%', width: '40vw', height: '40vw', borderRadius: '50%', background: 'radial-gradient(circle, rgba(90,139,247,0.05) 0%, rgba(255,255,255,0) 70%)', pointerEvents: 'none' }} />
+        <div style={{ position: 'absolute', bottom: '-10%', right: '-5%', width: '40vw', height: '40vw', borderRadius: '50%', background: 'radial-gradient(circle, rgba(134,93,245,0.05) 0%, rgba(255,255,255,0) 70%)', pointerEvents: 'none' }} />
+
         {/* Content */}
         <div style={{ position: 'relative', zIndex: 1, width: '100%', maxWidth: 420, padding: '0 24px', textAlign: 'center' }}>
           {/* Clock */}
-          <div style={{ marginBottom: 32 }}>
+          <div style={{ marginBottom: 40 }}>
             <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'center' }}>
-              <span style={{ fontSize: 80, fontWeight: 200, color: c.textMain, letterSpacing: '-3px', lineHeight: 1 }}>
+              <span style={{ fontSize: 72, fontWeight: 300, color: '#0f172a', letterSpacing: '-2px', lineHeight: 1 }}>
                 {hours}:{minutes}
               </span>
-              <span style={{ fontSize: 36, fontWeight: 200, color: c.textMuted, marginLeft: 6, letterSpacing: '-1px' }}>
+              <span style={{ fontSize: 32, fontWeight: 300, color: '#5a8bf7', marginLeft: 8, letterSpacing: '-1px' }}>
                 {seconds}
               </span>
             </div>
-            <div style={{ color: c.textSubtle, fontSize: 13, marginTop: 6, letterSpacing: '0.02em' }}>
+            <div style={{ color: '#64748b', fontSize: 14, marginTop: 12, fontWeight: 400 }}>
               {dateStr}
             </div>
           </div>
@@ -612,22 +635,25 @@ export function LockScreen({ onHide }: LockScreenProps) {
           {/* Card */}
           <div className={`bv-card-enter${isShaking ? ' bv-shake' : ''}`} style={{
             background: c.glassBg,
-            backdropFilter: 'blur(40px)',
-            WebkitBackdropFilter: 'blur(40px)',
             border: `1px solid ${c.glassBorder}`,
             borderRadius: 24,
             padding: 32,
-            boxShadow: '0 32px 64px rgba(0,0,0,0.6), 0 0 0 1px rgba(255,255,255,0.03) inset',
+            boxShadow: '0 24px 48px -12px rgba(90, 139, 247, 0.15), 0 0 0 1px rgba(255,255,255,0.8) inset',
           }}>
             {/* Logo */}
-            <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 16 }}>
-              <img src={chrome.runtime.getURL('icons/icon128.png')} alt="BrowserVault Logo" style={{ width: 56, height: 56, flexShrink: 0, borderRadius: 18, boxShadow: '0 8px 24px rgba(124, 58, 237, 0.45)' }} />
+            <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 20 }}>
+              <div style={{ 
+                width: 72, height: 72, borderRadius: '50%', background: 'linear-gradient(135deg, #eff4ff 0%, #e0ebff 100%)', 
+                display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative'
+              }}>
+                <img src={chrome.runtime.getURL('icons/icon128.png')} alt="BrowserVault Logo" style={{ width: 44, height: 44, flexShrink: 0, borderRadius: 12, boxShadow: '0 8px 16px rgba(90, 139, 247, 0.3)' }} />
+              </div>
             </div>
 
-            <h1 style={{ color: c.textMain, fontSize: 18, fontWeight: 700, margin: '0 0 6px', letterSpacing: '-0.3px' }}>
+            <h1 style={{ color: c.textMain, fontSize: 20, fontWeight: 800, margin: '0 0 8px', letterSpacing: '-0.3px' }}>
               {modeTitle}
             </h1>
-            <p style={{ color: c.textSubtle, fontSize: 13, margin: '0 0 24px', lineHeight: 1.5 }}>
+            <p style={{ color: c.textMuted, fontSize: 13, margin: '0 0 28px', lineHeight: 1.5, fontWeight: 500 }}>
               {modeSubtitle}
             </p>
 
@@ -692,7 +718,7 @@ export function LockScreen({ onHide }: LockScreenProps) {
                   showPassword={showPassword}
                   onToggleShow={() => setShowPassword((v) => !v)}
                   autoFocus
-                  styleVars={{ '--input-bg': c.inputBg, '--input-border': c.inputBorder, '--text-main': c.textMain }}
+                  styleVars={{ '--input-bg': c.inputBg, '--input-border': c.inputBorder, '--text-main': c.textMain, '--icon-color': c.iconColor }}
                 />
 
                 {mode === 'setup' && (
@@ -754,53 +780,73 @@ export function LockScreen({ onHide }: LockScreenProps) {
                   onClick={submitHandler}
                   disabled={isLoading}
                   style={{
-                    width: '100%', padding: '13px', borderRadius: 12, border: 'none',
-                    background: isLoading ? 'rgba(109,40,217,0.5)' : 'linear-gradient(135deg, #7c3aed 0%, #5b21b6 100%)',
-                    color: 'white', fontSize: 14, fontWeight: 600, letterSpacing: '0.2px',
+                    width: '100%', padding: '14px', borderRadius: 12, border: 'none',
+                    background: isLoading ? 'rgba(134,93,245,0.5)' : 'linear-gradient(90deg, #5a8bf7 0%, #865df5 100%)',
+                    color: 'white', fontSize: 15, fontWeight: 700, letterSpacing: '0.2px',
                     cursor: isLoading ? 'not-allowed' : 'pointer',
-                    boxShadow: '0 4px 18px rgba(109,40,217,0.4)',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+                    boxShadow: '0 8px 20px rgba(134,93,245,0.3)',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10,
                     transition: 'all 0.2s',
                   }}
                 >
                   {isLoading ? (
                     <>
-                      <svg className="bv-spin" width="15" height="15" viewBox="0 0 24 24" fill="none">
+                      <svg className="bv-spin" width="16" height="16" viewBox="0 0 24 24" fill="none">
                         <circle cx="12" cy="12" r="10" stroke="rgba(255,255,255,0.25)" strokeWidth="3"/>
                         <path d="M12 2a10 10 0 0110 10" stroke="white" strokeWidth="3" strokeLinecap="round"/>
                       </svg>
                       Processing…
                     </>
-                  ) : mode === 'setup' ? 'Create Password & Continue' : 'Unlock Browser'}
+                  ) : (
+                    <>
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="opacity-90">
+                        <rect x="5" y="11" width="14" height="10" rx="2" ry="2"></rect>
+                        <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+                      </svg>
+                      {mode === 'setup' ? 'Create Password & Continue' : 'Unlock Browser'}
+                    </>
+                  )}
                 </button>
 
                 {mode === 'unlock' && (
-                  <div style={{ marginTop: 16, textAlign: 'center' }}>
+                  <div style={{ marginTop: 24, textAlign: 'center' }}>
                     {biometricsEnabled && (
                       <button
                         type="button"
                         onClick={handleBiometricUnlock}
                         style={{
-                          background: 'rgba(139, 92, 246, 0.1)', border: '1px solid rgba(139, 92, 246, 0.2)',
-                          color: isLight ? '#7c3aed' : '#c4b5fd', fontSize: 14, fontWeight: 500,
-                          cursor: 'pointer', padding: '10px 16px', borderRadius: 12, width: '100%',
-                          marginBottom: 16, transition: 'all 0.2s',
+                          background: '#f8fafc', border: '1px solid #e2e8f0',
+                          color: '#5a8bf7', fontSize: 14, fontWeight: 500,
+                          cursor: 'pointer', padding: '12px 16px', borderRadius: 12, width: '100%',
+                          marginBottom: 20, transition: 'all 0.2s',
                         }}
+                        onMouseOver={(e) => e.currentTarget.style.background = '#f1f5f9'}
+                        onMouseOut={(e) => e.currentTarget.style.background = '#f8fafc'}
                       >
                         Unlock with Biometrics (TouchID / Windows Hello)
                       </button>
                     )}
+
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 20 }}>
+                      <div style={{ height: 1, flex: 1, background: 'rgba(15,23,42,0.06)' }} />
+                      <span style={{ fontSize: 11, color: '#94a3b8', fontWeight: 500 }}>or</span>
+                      <div style={{ height: 1, flex: 1, background: 'rgba(15,23,42,0.06)' }} />
+                    </div>
+
                     <button
                       type="button"
                       onClick={() => { setMode('forgot'); clearError(); }}
                       style={{
                         background: 'transparent', border: 'none', cursor: 'pointer',
-                        color: c.textSubtle, fontSize: 13, textDecoration: 'underline',
-                        transition: 'color 0.2s'
+                        color: '#5a8bf7', fontSize: 13, fontWeight: 500,
+                        transition: 'color 0.2s',
+                        display: 'inline-flex', alignItems: 'center', gap: 6
                       }}
-                      onMouseOver={(e) => e.currentTarget.style.color = isLight ? '#7c3aed' : '#a78bfa'}
-                      onMouseOut={(e) => e.currentTarget.style.color = c.textSubtle}
                     >
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M2 18v3c0 .6.4 1 1 1h4v-3h3v-3h2l1.4-1.4a6.5 6.5 0 1 0-4-4Z"></path>
+                        <circle cx="16.5" cy="7.5" r=".5" fill="currentColor"></circle>
+                      </svg>
                       Forgot password or PIN?
                     </button>
                   </div>

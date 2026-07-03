@@ -16,6 +16,7 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { checkPasswordStrength } from '@/lib/crypto';
+import { verifyBiometrics } from '@/lib/webauthn';
 
 // ─────────────────────────────────────────────────────────────
 // Types
@@ -273,6 +274,7 @@ export function LockScreen({ onHide }: LockScreenProps) {
   const COOLDOWN_TOTAL_MS = 5 * 60 * 1000;
 
   const [theme, setTheme] = useState<'light' | 'dark'>('dark');
+  const [biometricsEnabled, setBiometricsEnabled] = useState(false);
 
   useEffect(() => {
     (async () => {
@@ -280,10 +282,10 @@ export function LockScreen({ onHide }: LockScreenProps) {
         const response = await chrome.runtime.sendMessage({ action: 'GET_STATE' }) as
           {
             data?: {
-              authState?: { hasPassword?: boolean };
+              authState?: { hasPassword?: boolean, hasBiometrics?: boolean };
               lockState?: { cooldownExpiresAt?: number | null; failedAttemptCount?: number };
               maxAttempts?: number;
-              settings?: { theme?: 'light' | 'dark' | 'system' };
+              settings?: { theme?: 'light' | 'dark' | 'system', biometricUnlockEnabled?: boolean };
             }
           } | undefined;
 
@@ -297,6 +299,10 @@ export function LockScreen({ onHide }: LockScreenProps) {
           } else {
             setTheme(t);
           }
+        }
+
+        if (data?.settings?.biometricUnlockEnabled && data?.authState?.hasBiometrics) {
+          setBiometricsEnabled(true);
         }
 
         if (data?.authState?.hasPassword === false) {
@@ -352,6 +358,31 @@ export function LockScreen({ onHide }: LockScreenProps) {
   }, []);
 
   const clearError = useCallback(() => setError(''), []);
+
+  const handleBiometricUnlock = useCallback(async () => {
+    setIsLoading(true);
+    setError('');
+    try {
+      const { success, error } = await verifyBiometrics();
+      if (success) {
+        const response = await chrome.runtime.sendMessage({ action: 'UNLOCK_WITH_BIOMETRICS' }) as { data?: { success?: boolean } } | undefined;
+        if (response?.data?.success) {
+          onHide?.();
+        } else {
+          setError('Failed to unlock browser.');
+          triggerShake();
+        }
+      } else {
+        setError(error || 'Biometric verification failed.');
+        triggerShake();
+      }
+    } catch {
+      setError('Error communicating with biometrics.');
+      triggerShake();
+    } finally {
+      setIsLoading(false);
+    }
+  }, [onHide, triggerShake]);
 
   const handleUnlock = useCallback(async () => {
     if (!password.trim()) {
@@ -720,6 +751,20 @@ export function LockScreen({ onHide }: LockScreenProps) {
 
                 {mode === 'unlock' && (
                   <div style={{ marginTop: 16, textAlign: 'center' }}>
+                    {biometricsEnabled && (
+                      <button
+                        type="button"
+                        onClick={handleBiometricUnlock}
+                        style={{
+                          background: 'rgba(139, 92, 246, 0.1)', border: '1px solid rgba(139, 92, 246, 0.2)',
+                          color: isLight ? '#7c3aed' : '#c4b5fd', fontSize: 14, fontWeight: 500,
+                          cursor: 'pointer', padding: '10px 16px', borderRadius: 12, width: '100%',
+                          marginBottom: 16, transition: 'all 0.2s',
+                        }}
+                      >
+                        Unlock with Biometrics (TouchID / Windows Hello)
+                      </button>
+                    )}
                     <button
                       type="button"
                       onClick={() => { setMode('forgot'); clearError(); }}

@@ -60,6 +60,7 @@ async function fireIdleState(state: IdleState): Promise<void> {
 
 /** Settings helper */
 const enabledSettings = (notifyBeforeLock = false) => ({
+  autoLockOnSleep: false,
   idleModeEnabled: true,
   idleDurationMinutes: 5,
   notifyBeforeLock,
@@ -100,7 +101,7 @@ describe('idleWatcher', () => {
 
   describe('startIdleWatcher()', () => {
     it('does nothing when idleModeEnabled is false', () => {
-      startIdleWatcher({ idleModeEnabled: false, idleDurationMinutes: 5, notifyBeforeLock: false });
+      startIdleWatcher({ autoLockOnSleep: false, idleModeEnabled: false, idleDurationMinutes: 5, notifyBeforeLock: false });
       expect(isWatching()).toBe(false);
       expect(idleListeners).toHaveLength(0);
     });
@@ -113,13 +114,13 @@ describe('idleWatcher', () => {
     });
 
     it('clamps interval to minimum 15 seconds', () => {
-      startIdleWatcher({ idleModeEnabled: true, idleDurationMinutes: 0, notifyBeforeLock: false });
+      startIdleWatcher({ autoLockOnSleep: false, idleModeEnabled: true, idleDurationMinutes: 0, notifyBeforeLock: false });
       expect(_detectionInterval).toBe(15);
     });
 
     it('replaces existing watcher when called again', () => {
-      startIdleWatcher({ idleModeEnabled: true, idleDurationMinutes: 5, notifyBeforeLock: false });
-      startIdleWatcher({ idleModeEnabled: true, idleDurationMinutes: 15, notifyBeforeLock: false });
+      startIdleWatcher({ autoLockOnSleep: false, idleModeEnabled: true, idleDurationMinutes: 5, notifyBeforeLock: false });
+      startIdleWatcher({ autoLockOnSleep: false, idleModeEnabled: true, idleDurationMinutes: 15, notifyBeforeLock: false });
       expect(idleListeners).toHaveLength(1);
       expect(_detectionInterval).toBe(900); // 15 * 60
     });

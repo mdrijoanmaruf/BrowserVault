@@ -9,6 +9,8 @@ export interface UserSettings {
   clearHistoryOnLock: boolean;
   theme: 'light' | 'dark' | 'system';
   logRetentionDays: number;
+  autoLockOnSleep: boolean;
+  biometricUnlockEnabled: boolean;
 }
 
 export interface AuthState {
@@ -17,6 +19,7 @@ export interface AuthState {
   emailVerified: boolean;
   recoveryEmail?: string;
   hasBackupCodes: boolean;
+  hasBiometrics: boolean;
 }
 
 export interface ActivityLogEntry {

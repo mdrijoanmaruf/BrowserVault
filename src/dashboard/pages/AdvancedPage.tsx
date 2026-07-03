@@ -4,7 +4,34 @@
  * Settings for Schedule, Shortcuts, Per-Profile, Domain Lock
  */
 
+import { useSettings } from '@/hooks/useSettings';
+import { registerBiometrics, disableBiometrics } from '@/lib/webauthn';
+import { useToast } from '@/components/ToastContext';
+
 export function AdvancedPage() {
+  const { settings, updateSettings } = useSettings();
+  const { addToast } = useToast();
+
+  const handleBiometricToggle = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const checked = e.target.checked;
+    
+    if (checked) {
+      const { success, error } = await registerBiometrics();
+      
+      if (success) {
+        updateSettings({ biometricUnlockEnabled: true });
+        addToast('Biometrics successfully registered!', 'success');
+      } else {
+        addToast(error || 'Failed to register biometrics.', 'error');
+        // Revert UI toggle by updating settings with current false
+        updateSettings({ biometricUnlockEnabled: false });
+      }
+    } else {
+      await disableBiometrics();
+      updateSettings({ biometricUnlockEnabled: false });
+      addToast('Biometric unlock disabled.', 'info');
+    }
+  };
   return (
     <div className="space-y-6">
       <div className="bg-white dark:bg-white/[0.03] border border-slate-200 dark:border-white/[0.07] rounded-2xl overflow-hidden transition-colors duration-200">
@@ -42,6 +69,44 @@ export function AdvancedPage() {
             >
               Configure in Chrome
             </button>
+          </div>
+
+          {/* Auto-Lock on Sleep */}
+          <div className="px-6 py-5 flex items-center justify-between gap-6">
+            <div>
+              <h3 className="text-sm font-medium text-slate-900 dark:text-white">Auto-Lock on Sleep</h3>
+              <p className="text-xs text-slate-500 dark:text-white/40 mt-1 leading-relaxed">
+                Immediately lock the browser when your computer goes to sleep.
+              </p>
+            </div>
+            <label className="relative inline-flex items-center cursor-pointer">
+              <input 
+                type="checkbox" 
+                className="sr-only peer" 
+                checked={settings.autoLockOnSleep}
+                onChange={(e) => updateSettings({ autoLockOnSleep: e.target.checked })}
+              />
+              <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-violet-300 dark:peer-focus:ring-violet-800 rounded-full peer dark:bg-slate-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-slate-600 peer-checked:bg-violet-600"></div>
+            </label>
+          </div>
+
+          {/* Biometric Unlock */}
+          <div className="px-6 py-5 flex items-center justify-between gap-6">
+            <div>
+              <h3 className="text-sm font-medium text-slate-900 dark:text-white">Biometric Unlock (WebAuthn)</h3>
+              <p className="text-xs text-slate-500 dark:text-white/40 mt-1 leading-relaxed">
+                Use TouchID, FaceID, or Windows Hello to unlock the browser.
+              </p>
+            </div>
+            <label className="relative inline-flex items-center cursor-pointer">
+              <input 
+                type="checkbox" 
+                className="sr-only peer" 
+                checked={settings.biometricUnlockEnabled}
+                onChange={handleBiometricToggle}
+              />
+              <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-violet-300 dark:peer-focus:ring-violet-800 rounded-full peer dark:bg-slate-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-slate-600 peer-checked:bg-violet-600"></div>
+            </label>
           </div>
 
           {/* Domain Lock List */}

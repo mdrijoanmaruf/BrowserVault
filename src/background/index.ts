@@ -251,6 +251,29 @@ router.on('VERIFY_OTP', async (payload: { otp?: string; purpose?: 'unlock' | 've
   return { success: false, error: 'Invalid OTP.' };
 });
 
+/**
+ * Unlocks the browser directly if local biometrics verified successfully.
+ * The WebAuthn verification happens in the UI/Content script where navigator.credentials is available.
+ */
+router.on('UNLOCK_WITH_BIOMETRICS', async () => {
+  const state = (await storage.getItem<LockState>(STORAGE_KEYS.LOCK_STATE)) ?? { ...DEFAULT_LOCK_STATE };
+  state.isLocked = false;
+  state.failedAttemptCount = 0;
+  state.cooldownExpiresAt = null;
+  await storage.setItem(STORAGE_KEYS.LOCK_STATE, state);
+
+  await logActivity('UNLOCK', 'Unlocked via Biometrics (WebAuthn)');
+  await chrome.tabs.query({}).then(tabs => {
+    tabs.forEach(tab => {
+      if (tab.id && tab.url && !tab.url.startsWith('chrome://')) {
+        chrome.tabs.sendMessage(tab.id, { action: 'HIDE_LOCK_OVERLAY' }).catch(() => {});
+      }
+    });
+  });
+
+  return { success: true };
+});
+
 /** Returns the full activity log */
 router.on('GET_ACTIVITY_LOG', async () => {
   return await getActivityLog();

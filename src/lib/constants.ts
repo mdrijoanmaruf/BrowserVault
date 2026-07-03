@@ -10,6 +10,8 @@ export const DEFAULT_USER_SETTINGS: UserSettings = {
   clearHistoryOnLock: false,
   theme: 'system',
   logRetentionDays: 30,
+  autoLockOnSleep: false,
+  biometricUnlockEnabled: false,
 };
 
 export const DEFAULT_LOCK_STATE: LockState = {
@@ -23,6 +25,7 @@ export const DEFAULT_AUTH_STATE: AuthState = {
   hasPin: false,
   emailVerified: false,
   hasBackupCodes: false,
+  hasBiometrics: false,
 };
 
 export const STORAGE_KEYS = {

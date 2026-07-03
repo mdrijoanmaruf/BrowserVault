@@ -38,7 +38,7 @@ function clearPendingTimers(): void {
 
 export type IdleWatcherSettings = Pick<
   UserSettings,
-  'idleModeEnabled' | 'idleDurationMinutes' | 'notifyBeforeLock'
+  'idleModeEnabled' | 'idleDurationMinutes' | 'notifyBeforeLock' | 'autoLockOnSleep'
 >;
 
 /**
@@ -48,12 +48,17 @@ export type IdleWatcherSettings = Pick<
 export function startIdleWatcher(settings: IdleWatcherSettings): void {
   stopIdleWatcher();
 
-  if (!settings.idleModeEnabled) {
+  if (!settings.idleModeEnabled && !settings.autoLockOnSleep) {
     console.log('[BrowserVault] Idle watcher disabled by settings');
     return;
   }
 
-  const intervalSeconds = Math.max(15, settings.idleDurationMinutes * 60);
+  // If idleModeEnabled is false but autoLockOnSleep is true, we still need to watch for 'locked'
+  // using a default interval, though the 'locked' state fires immediately on OS lock.
+  const intervalSeconds = settings.idleModeEnabled 
+    ? Math.max(15, settings.idleDurationMinutes * 60)
+    : 60; // default if only watching for sleep
+    
   chrome.idle.setDetectionInterval(intervalSeconds);
 
   /** Seconds before lock to show the pre-lock warning notification */
@@ -70,6 +75,18 @@ export function startIdleWatcher(settings: IdleWatcherSettings): void {
 
     if (idleState === 'idle' || idleState === 'locked') {
       clearPendingTimers();
+
+      // If it's a system sleep ('locked') and we have autoLockOnSleep enabled,
+      // lock immediately, bypassing any warnings or idleModeEnabled checks.
+      if (idleState === 'locked' && settings.autoLockOnSleep) {
+        console.log('[BrowserVault] System locked/sleeping — locking browser immediately');
+        lockBrowser();
+        return;
+      }
+
+      // If we are just idle (or locked but autoLockOnSleep is off),
+      // we only proceed if idleModeEnabled is actually on
+      if (!settings.idleModeEnabled) return;
 
       if (settings.notifyBeforeLock) {
         // Show warning notification WARN_LEAD_SECONDS before locking

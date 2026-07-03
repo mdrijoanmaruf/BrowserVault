@@ -9,6 +9,7 @@ import { createContext, useContext, useEffect } from 'react';
 import type { ReactNode } from 'react';
 import { useSettings } from '@/hooks/useSettings';
 import type { UserSettings } from '@/types';
+import { ToastProvider } from './ToastContext';
 
 interface AppContextValue {
   theme: UserSettings['theme'];
@@ -55,9 +56,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }, [theme]);
 
   return (
-    <AppContext.Provider value={{ theme, resolvedTheme, isLoading }}>
-      {children}
-    </AppContext.Provider>
+    <ToastProvider>
+      <AppContext.Provider value={{ theme, resolvedTheme, isLoading }}>
+        {children}
+      </AppContext.Provider>
+    </ToastProvider>
   );
 }
 

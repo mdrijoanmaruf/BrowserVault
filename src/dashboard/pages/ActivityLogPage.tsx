@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import Swal from 'sweetalert2';
 import { getActivityLog, clearActivityLog } from '@/lib/activityLog';
 import type { ActivityLogEntry } from '@/types';
 
@@ -88,9 +89,28 @@ export function ActivityLogPage() {
   }
 
   async function handleClear() {
-    if (!confirm('Are you sure you want to clear all activity logs?')) return;
+    const result = await Swal.fire({
+      title: 'Clear Logs?',
+      text: 'Are you sure you want to clear all activity logs?',
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#ef4444',
+      cancelButtonColor: '#64748b',
+      confirmButtonText: 'Yes, clear them!'
+    });
+    
+    if (!result.isConfirmed) return;
+
     await clearActivityLog();
     await loadLogs();
+    
+    Swal.fire({
+      title: 'Cleared!',
+      text: 'Activity logs have been cleared.',
+      icon: 'success',
+      timer: 1500,
+      showConfirmButton: false
+    });
   }
 
   const totalPages = Math.max(1, Math.ceil(logs.length / ITEMS_PER_PAGE));

@@ -7,22 +7,40 @@
 import { useSettings } from '@/hooks/useSettings';
 import { registerBiometrics, disableBiometrics } from '@/lib/webauthn';
 import { useToast } from '@/components/ToastContext';
+import Swal from 'sweetalert2';
 
 export function AdvancedPage() {
   const { settings, updateSettings } = useSettings();
   const { addToast } = useToast();
 
   const handleFactoryReset = async () => {
-    if (window.confirm("Are you sure you want to reset BrowserVault? This will remove your password and all settings.")) {
+    const result = await Swal.fire({
+      title: 'Factory Reset',
+      text: 'Are you sure you want to reset BrowserVault? This will remove your password and all settings.',
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#ef4444',
+      cancelButtonColor: '#64748b',
+      confirmButtonText: 'Yes, reset it!'
+    });
+
+    if (result.isConfirmed) {
       try {
         const response = await chrome.runtime.sendMessage({ action: 'FACTORY_RESET' });
         if (response?.success) {
+          await Swal.fire({
+            title: 'Reset Complete',
+            text: 'BrowserVault has been factory reset.',
+            icon: 'success',
+            timer: 2000,
+            showConfirmButton: false
+          });
           window.location.reload();
         } else {
-          addToast(response?.error || 'Failed to reset extension.', 'error');
+          Swal.fire('Error', response?.error || 'Failed to reset extension.', 'error');
         }
       } catch (err) {
-        addToast('Failed to reset extension.', 'error');
+        Swal.fire('Error', 'Failed to reset extension.', 'error');
       }
     }
   };

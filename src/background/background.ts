@@ -377,47 +377,64 @@ chrome.runtime.onStartup.addListener(async () => {
   await lockBrowser();
 });
 
+const LOCK_PAGE_URL = chrome.runtime.getURL('lock.html');
+
 /**
- * Intercept new window creation. Minimize the new window and enforce lock focus.
+ * Intercept new window creation. Enforce lock on its tabs.
  */
 chrome.windows.onCreated.addListener(async (window) => {
   if (!(await isCurrentlyLocked())) return;
 
-  // Add a small delay to allow createLockWindow to save vault_lock_window_id
+  // Short delay to allow tabs to be populated in the new window
   setTimeout(async () => {
-    const sessionData = await chrome.storage.session.get('vault_lock_window_id');
-    if (window.id === sessionData.vault_lock_window_id) return;
-
     try {
-      if (window.id) {
-        await chrome.windows.update(window.id, { state: 'minimized' });
+      const tabs = await chrome.tabs.query({ windowId: window.id });
+      for (const tab of tabs) {
+        if (!tab.id) continue;
+        const url = tab.url ?? tab.pendingUrl ?? '';
+        if (url.startsWith(LOCK_PAGE_URL)) continue;
+
+        const encodedRedirect = url ? encodeURIComponent(url) : '';
+        const redirectUrl = encodedRedirect ? `${LOCK_PAGE_URL}?redirect=${encodedRedirect}` : LOCK_PAGE_URL;
+        chrome.tabs.update(tab.id, { url: redirectUrl }).catch(() => {});
       }
-      const lockWindowId = sessionData.vault_lock_window_id as number | undefined;
-      if (lockWindowId) {
-        await chrome.windows.update(lockWindowId, { focused: true });
-      }
-    } catch (e) {}
-  }, 250);
+    } catch {
+      // Ignore errors if window closes quickly
+    }
+  }, 100);
 });
 
 /**
- * Force focus on the lock window if the browser is locked and another window gets focus.
+ * Intercept new tab creation while locked:
+ * Redirect the new tab to the lock page immediately.
  */
-chrome.windows.onFocusChanged.addListener(async (windowId) => {
-  if (windowId === chrome.windows.WINDOW_ID_NONE) return;
+chrome.tabs.onCreated.addListener(async (tab) => {
+  if (!tab.id) return;
   if (!(await isCurrentlyLocked())) return;
 
-  const sessionData = await chrome.storage.session.get('vault_lock_window_id');
-  const lockWindowId = sessionData.vault_lock_window_id as number | undefined;
+  const url = tab.url ?? tab.pendingUrl ?? '';
+  if (url.startsWith(LOCK_PAGE_URL)) return;
 
-  if (lockWindowId && windowId !== lockWindowId) {
-    try {
-      await chrome.windows.update(lockWindowId, { focused: true });
-    } catch (e) {
-      // The lock window might have been closed somehow. Recreate it.
-      await lockBrowser();
-    }
-  }
+  const encodedRedirect = url ? encodeURIComponent(url) : '';
+  const redirectUrl = encodedRedirect ? `${LOCK_PAGE_URL}?redirect=${encodedRedirect}` : LOCK_PAGE_URL;
+  chrome.tabs.update(tab.id, { url: redirectUrl }).catch(() => {});
+});
+
+/**
+ * Intercept navigation while locked.
+ */
+chrome.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
+  if (changeInfo.status !== 'loading') return;
+  const url = changeInfo.url ?? tab.url ?? '';
+  
+  if (!url || url.startsWith('chrome-extension://') || url.startsWith('chrome://')) return;
+  if (url.startsWith(LOCK_PAGE_URL)) return;
+
+  if (!(await isCurrentlyLocked())) return;
+
+  const encodedRedirect = url ? encodeURIComponent(url) : '';
+  const redirectUrl = encodedRedirect ? `${LOCK_PAGE_URL}?redirect=${encodedRedirect}` : LOCK_PAGE_URL;
+  chrome.tabs.update(tabId, { url: redirectUrl }).catch(() => {});
 });
 
 /**

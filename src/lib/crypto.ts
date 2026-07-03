@@ -101,3 +101,36 @@ export async function verifyPassword(
 
   return isMatch === 0;
 }
+
+/**
+ * Evaluates the strength of a password based on length and character variety.
+ */
+export function checkPasswordStrength(password: string): 'weak' | 'medium' | 'strong' {
+  if (password.length < 8) return 'weak';
+
+  let score = 0;
+  if (password.length >= 12) score += 1; // bonus for length
+  if (/[A-Z]/.test(password)) score += 1; // uppercase
+  if (/[a-z]/.test(password)) score += 1; // lowercase
+  if (/[0-9]/.test(password)) score += 1; // numbers
+  if (/[^A-Za-z0-9]/.test(password)) score += 1; // symbols
+
+  if (score < 3) return 'weak';
+  if (score === 3 || score === 4) return 'medium';
+  return 'strong';
+}
+
+/**
+ * Generates 8 random secure backup codes, formatted as XXXX-XXXX.
+ */
+export function generateBackupCodes(count: number = 8): string[] {
+  const codes: string[] = [];
+  const array = new Uint8Array(4); // 4 bytes = 8 hex chars
+  for (let i = 0; i < count; i++) {
+    crypto.getRandomValues(array);
+    const hex = Array.from(array).map(b => b.toString(16).padStart(2, '0')).join('');
+    codes.push(`${hex.slice(0, 4)}-${hex.slice(4, 8)}`.toUpperCase());
+  }
+  return codes;
+}
+

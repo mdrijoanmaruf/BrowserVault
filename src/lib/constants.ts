@@ -22,6 +22,7 @@ export const DEFAULT_AUTH_STATE: AuthState = {
   hasPassword: false,
   hasPin: false,
   emailVerified: false,
+  hasBackupCodes: false,
 };
 
 export const STORAGE_KEYS = {

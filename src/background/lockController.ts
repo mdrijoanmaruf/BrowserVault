@@ -133,8 +133,32 @@ export async function unlockBrowser(
     await saveLockState(state);
   }
 
-  // ── Password verification ────────────────────────────────
-  const isValid = await verifyPassword(password, storedHash, storedSalt);
+  // ── Password / PIN / Backup Codes verification ──────────────────────────────
+  let isValid = await verifyPassword(password, storedHash, storedSalt);
+
+  if (!isValid) {
+    const pinHash = await storage.getItem<string>('vault_pin_hash');
+    const pinSalt = await storage.getItem<string>('vault_pin_salt');
+    if (pinHash && pinSalt) {
+      isValid = await verifyPassword(password, pinHash, pinSalt);
+    }
+  }
+
+  if (!isValid) {
+    const backupCodesHashes = await storage.getItem<string[]>('vault_backup_codes');
+    if (backupCodesHashes && backupCodesHashes.length > 0) {
+      for (let i = 0; i < backupCodesHashes.length; i++) {
+        if (await verifyPassword(password, backupCodesHashes[i], storedSalt)) {
+          isValid = true;
+          // Remove used backup code
+          backupCodesHashes.splice(i, 1);
+          await storage.setItem('vault_backup_codes', backupCodesHashes);
+          await logActivity('SETTINGS_CHANGE', 'Backup code used for unlock');
+          break;
+        }
+      }
+    }
+  }
 
   if (isValid) {
     state.isLocked = false;

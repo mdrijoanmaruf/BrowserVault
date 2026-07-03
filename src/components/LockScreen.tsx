@@ -14,13 +14,14 @@
  *  - "cooldown" → locked-out countdown screen
  */
 
-import { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
+import { checkPasswordStrength } from '@/lib/crypto';
 
 // ─────────────────────────────────────────────────────────────
 // Types
 // ─────────────────────────────────────────────────────────────
 
-type LockMode = 'unlock' | 'setup' | 'forgot' | 'cooldown';
+type LockMode = 'setup' | 'unlock' | 'cooldown' | 'backup-codes' | 'forgot' | 'otp-verify';
 
 interface LockScreenProps {
   onHide?: () => void;
@@ -171,6 +172,38 @@ export function PasswordField({
   );
 }
 
+function PasswordStrengthMeter({ password, isLight }: { password: string, isLight: boolean }) {
+  const strength = React.useMemo(() => checkPasswordStrength(password), [password]);
+  if (!password) return null;
+
+  const getBarColor = (index: number) => {
+    if (strength === 'weak' && index === 0) return '#ef4444';
+    if (strength === 'medium' && index <= 1) return '#f59e0b';
+    if (strength === 'strong' && index <= 2) return '#10b981';
+    return isLight ? 'rgba(15, 23, 42, 0.1)' : 'rgba(255, 255, 255, 0.1)';
+  };
+
+  const getTextColor = () => {
+    if (strength === 'weak') return '#ef4444';
+    if (strength === 'medium') return '#f59e0b';
+    return '#10b981';
+  };
+
+  return (
+    <div style={{ marginTop: 8, marginBottom: 16 }}>
+      <div style={{ display: 'flex', gap: 6, height: 6 }}>
+        <div style={{ flex: 1, borderRadius: 3, background: getBarColor(0), transition: 'background 0.3s' }} />
+        <div style={{ flex: 1, borderRadius: 3, background: getBarColor(1), transition: 'background 0.3s' }} />
+        <div style={{ flex: 1, borderRadius: 3, background: getBarColor(2), transition: 'background 0.3s' }} />
+      </div>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 6, fontSize: 12 }}>
+        <span style={{ color: isLight ? 'rgba(15, 23, 42, 0.45)' : 'rgba(255, 255, 255, 0.45)' }}>Password strength:</span>
+        <span style={{ color: getTextColor(), fontWeight: 500, textTransform: 'capitalize' }}>{strength}</span>
+      </div>
+    </div>
+  );
+}
+
 /** Circular countdown ring for cooldown mode */
 function CooldownRing({ remainingMs, totalMs }: { remainingMs: number; totalMs: number }) {
   const radius = 40;
@@ -230,8 +263,13 @@ export function LockScreen({ onHide }: LockScreenProps) {
   const [maxAttempts, setMaxAttempts] = useState(5);
   const [remainingAttempts, setRemainingAttempts] = useState<number | null>(null);
 
-  const [cooldownExpiresAt, setCooldownExpiresAt] = useState<number | null>(null);
   const [cooldownRemainingMs, setCooldownRemainingMs] = useState(0);
+  const [backupCodes, setBackupCodes] = useState<string[] | null>(null);
+
+  const [recoveryEmail, setRecoveryEmail] = useState('');
+  const [otp, setOtp] = useState('');
+
+  const [cooldownExpiresAt, setCooldownExpiresAt] = useState<number | null>(null);
   const COOLDOWN_TOTAL_MS = 5 * 60 * 1000;
 
   const [theme, setTheme] = useState<'light' | 'dark'>('dark');
@@ -367,7 +405,7 @@ export function LockScreen({ onHide }: LockScreenProps) {
 
   const handleSetup = useCallback(async () => {
     if (!password) { setError('Please enter a password.'); triggerShake(); return; }
-    if (password.length < 8) { setError('Password must be at least 8 characters.'); triggerShake(); return; }
+    if (checkPasswordStrength(password) === 'weak') { setError('Please choose a stronger password (at least 8 chars, mix of types).'); triggerShake(); return; }
     if (password !== confirmPassword) { setError('Passwords do not match.'); triggerShake(); return; }
 
     setIsLoading(true);
@@ -376,11 +414,19 @@ export function LockScreen({ onHide }: LockScreenProps) {
       const setResp = await chrome.runtime.sendMessage({
         action: 'SET_PASSWORD',
         payload: { password },
-      }) as { data?: { success?: boolean } } | undefined;
+      }) as { data?: { success?: boolean, backupCodes?: string[] } } | undefined;
 
       if (!setResp?.data?.success) {
         setError('Failed to save password. Please try again.');
+        setIsLoading(false);
         return;
+      }
+      
+      if (setResp.data.backupCodes) {
+        setBackupCodes(setResp.data.backupCodes);
+        setMode('backup-codes');
+        setIsLoading(false);
+        return; // Wait for user to save codes
       }
 
       const unlockResp = await chrome.runtime.sendMessage({
@@ -399,6 +445,43 @@ export function LockScreen({ onHide }: LockScreenProps) {
       setIsLoading(false);
     }
   }, [password, confirmPassword, onHide, triggerShake]);
+
+  const handleRequestOtp = useCallback(async () => {
+    if (!recoveryEmail) { setError('Please enter your recovery email.'); triggerShake(); return; }
+    setIsLoading(true);
+    setError('');
+    try {
+      const resp = await chrome.runtime.sendMessage({ action: 'REQUEST_OTP' }) as { success?: boolean; error?: string; email?: string } | undefined;
+      if (resp?.success && resp.email === recoveryEmail) {
+        setMode('otp-verify');
+      } else {
+        setError(resp?.error || 'Failed to send OTP or email mismatch.');
+      }
+    } catch {
+      setError('Network error.');
+    } finally {
+      setIsLoading(false);
+    }
+  }, [recoveryEmail, triggerShake]);
+
+  const handleVerifyOtp = useCallback(async () => {
+    if (!otp) { setError('Please enter the OTP.'); triggerShake(); return; }
+    setIsLoading(true);
+    setError('');
+    try {
+      const resp = await chrome.runtime.sendMessage({ action: 'VERIFY_OTP', payload: { otp } }) as { success?: boolean; error?: string } | undefined;
+      if (resp?.success) {
+        onHide?.();
+      } else {
+        setError(resp?.error || 'Invalid OTP.');
+        triggerShake();
+      }
+    } catch {
+      setError('Network error.');
+    } finally {
+      setIsLoading(false);
+    }
+  }, [otp, onHide, triggerShake]);
 
   const hours = time.getHours().toString().padStart(2, '0');
   const minutes = time.getMinutes().toString().padStart(2, '0');
@@ -509,6 +592,39 @@ export function LockScreen({ onHide }: LockScreenProps) {
             )}
 
             {/* ── Unlock / Setup forms ── */}
+            {mode === 'backup-codes' && backupCodes && (
+              <div style={{ textAlign: 'center', marginBottom: 20 }}>
+                <p style={{ margin: '0 0 16px', fontSize: 13, color: c.textSubtle, lineHeight: 1.5 }}>
+                  These backup codes can be used to unlock your vault if you forget your password. 
+                  They will only be shown once. Please save them.
+                </p>
+                <div style={{ 
+                  background: 'var(--input-bg, rgba(255, 255, 255, 0.05))', padding: 12, borderRadius: 8, 
+                  display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, 
+                  fontFamily: 'monospace', fontSize: 14, color: isLight ? '#6366f1' : '#a78bfa'
+                }}>
+                  {backupCodes.map((code, idx) => (
+                    <div key={idx} style={{ userSelect: 'all' }}>{code}</div>
+                  ))}
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    navigator.clipboard.writeText(backupCodes.join('\n'));
+                    onHide?.();
+                  }}
+                  style={{
+                    marginTop: 20, width: '100%', background: 'var(--input-bg, rgba(255, 255, 255, 0.05))', 
+                    border: '1px solid var(--input-border, rgba(255, 255, 255, 0.15))', padding: '12px', 
+                    borderRadius: 12, color: c.textMain, cursor: 'pointer',
+                    fontWeight: 500, transition: 'all 0.2s',
+                  }}
+                >
+                  Copy to Clipboard & Continue
+                </button>
+              </div>
+            )}
+
             {(mode === 'unlock' || mode === 'setup') && (
               <>
                 <PasswordField
@@ -524,16 +640,19 @@ export function LockScreen({ onHide }: LockScreenProps) {
                 />
 
                 {mode === 'setup' && (
-                  <PasswordField
-                    id="bv-confirm-password"
-                    value={confirmPassword}
-                    onChange={(v) => { setConfirmPassword(v); clearError(); }}
-                    onKeyEnter={submitHandler}
-                    placeholder="Confirm password"
-                    showPassword={showPassword}
-                    onToggleShow={() => setShowPassword((v) => !v)}
-                    styleVars={{ '--input-bg': c.inputBg, '--input-border': c.inputBorder, '--text-main': c.textMain }}
-                  />
+                  <>
+                    <PasswordStrengthMeter password={password} isLight={isLight} />
+                    <PasswordField
+                      id="bv-confirm-password"
+                      value={confirmPassword}
+                      onChange={(v) => { setConfirmPassword(v); clearError(); }}
+                      onKeyEnter={submitHandler}
+                      placeholder="Confirm password"
+                      showPassword={showPassword}
+                      onToggleShow={() => setShowPassword((v) => !v)}
+                      styleVars={{ '--input-bg': c.inputBg, '--input-border': c.inputBorder, '--text-main': c.textMain }}
+                    />
+                  </>
                 )}
 
                 {/* Attempts remaining indicator */}
@@ -600,47 +719,134 @@ export function LockScreen({ onHide }: LockScreenProps) {
                 </button>
 
                 {mode === 'unlock' && (
-                  <button type="button" className="bv-link"
-                    onClick={() => { setMode('forgot'); clearError(); }}
-                    style={{
-                      width: '100%', marginTop: 12, background: 'none', border: 'none',
-                      color: 'rgba(255,255,255,0.32)', fontSize: 12, cursor: 'pointer',
-                      transition: 'color 0.2s', padding: '4px 0',
-                    }}
-                  >
-                    Forgot your password?
-                  </button>
+                  <div style={{ marginTop: 16, textAlign: 'center' }}>
+                    <button
+                      type="button"
+                      onClick={() => { setMode('forgot'); clearError(); }}
+                      style={{
+                        background: 'transparent', border: 'none', cursor: 'pointer',
+                        color: c.textSubtle, fontSize: 13, textDecoration: 'underline',
+                        transition: 'color 0.2s'
+                      }}
+                      onMouseOver={(e) => e.currentTarget.style.color = isLight ? '#7c3aed' : '#a78bfa'}
+                      onMouseOut={(e) => e.currentTarget.style.color = c.textSubtle}
+                    >
+                      Forgot password or PIN?
+                    </button>
+                  </div>
                 )}
               </>
             )}
 
             {/* ── Forgot mode ── */}
             {mode === 'forgot' && (
-              <>
-                <div style={{
-                  background: 'rgba(139,92,246,0.08)', border: '1px solid rgba(139,92,246,0.2)',
-                  borderRadius: 14, padding: '16px 20px', marginBottom: 16, textAlign: 'left',
-                }}>
-                  <p style={{ color: 'rgba(255,255,255,0.7)', fontSize: 13, margin: 0, lineHeight: 1.65 }}>
-                    Open the{' '}
-                    <strong style={{ color: 'rgba(167,139,250,0.9)' }}>BrowserVault Settings</strong>
-                    {' '}from the extension popup and use the{' '}
-                    <strong style={{ color: 'rgba(167,139,250,0.9)' }}>Email Recovery</strong>
-                    {' '}option to reset your password via a one-time code.
-                  </p>
-                </div>
+              <form onSubmit={(e) => { e.preventDefault(); handleRequestOtp(); }}>
+                <p style={{ color: c.textSubtle, fontSize: 13, margin: '0 0 16px', lineHeight: 1.5 }}>
+                  Enter your recovery email. If it matches the one on file, we will send you a one-time passcode (OTP).
+                </p>
+                <input
+                  type="email"
+                  value={recoveryEmail}
+                  onChange={(e) => { setRecoveryEmail(e.target.value); clearError(); }}
+                  placeholder="Recovery email address"
+                  autoFocus
+                  style={{
+                    width: '100%', padding: '12px 16px', borderRadius: 12, border: `1px solid ${c.inputBorder}`,
+                    background: c.inputBg, color: c.textMain, fontSize: 14,
+                    outline: 'none', transition: 'all 0.2s', marginBottom: 12,
+                  }}
+                />
+                
+                {error && (
+                  <div style={{
+                    background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.22)',
+                    borderRadius: 10, padding: '9px 13px', marginBottom: 12, textAlign: 'left',
+                  }}>
+                    <p style={{ color: '#fca5a5', fontSize: 12, margin: 0 }}>{error}</p>
+                  </div>
+                )}
+                
+                <button
+                  type="submit"
+                  disabled={isLoading}
+                  style={{
+                    width: '100%', padding: '13px', borderRadius: 12, border: 'none',
+                    background: isLoading ? 'rgba(109,40,217,0.5)' : 'linear-gradient(135deg, #7c3aed 0%, #5b21b6 100%)',
+                    color: 'white', fontSize: 14, fontWeight: 600, cursor: isLoading ? 'not-allowed' : 'pointer',
+                    boxShadow: '0 4px 18px rgba(109,40,217,0.4)', transition: 'all 0.2s', marginBottom: 12,
+                  }}
+                >
+                  {isLoading ? 'Sending...' : 'Send Recovery Code'}
+                </button>
                 <button type="button" className="bv-btn-secondary"
                   onClick={() => setMode('unlock')}
                   style={{
                     width: '100%', padding: '12px', borderRadius: 12,
-                    background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)',
-                    color: 'rgba(255,255,255,0.65)', fontSize: 14, cursor: 'pointer',
+                    background: 'transparent', border: `1px solid ${c.inputBorder}`,
+                    color: c.textSubtle, fontSize: 14, cursor: 'pointer',
                     fontWeight: 500, transition: 'all 0.2s',
                   }}
                 >
                   ← Back to Unlock
                 </button>
-              </>
+              </form>
+            )}
+
+            {/* ── OTP Verify mode ── */}
+            {mode === 'otp-verify' && (
+              <form onSubmit={(e) => { e.preventDefault(); handleVerifyOtp(); }}>
+                <p style={{ color: c.textSubtle, fontSize: 13, margin: '0 0 16px', lineHeight: 1.5 }}>
+                  Enter the 6-digit code sent to your recovery email.
+                </p>
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  pattern="[0-9]*"
+                  maxLength={6}
+                  value={otp}
+                  onChange={(e) => { setOtp(e.target.value); clearError(); }}
+                  placeholder="000000"
+                  autoFocus
+                  style={{
+                    width: '100%', padding: '12px 16px', borderRadius: 12, border: `1px solid ${c.inputBorder}`,
+                    background: c.inputBg, color: c.textMain, fontSize: 24, textAlign: 'center', letterSpacing: '8px',
+                    outline: 'none', transition: 'all 0.2s', marginBottom: 12, fontFamily: 'monospace'
+                  }}
+                />
+                
+                {error && (
+                  <div style={{
+                    background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.22)',
+                    borderRadius: 10, padding: '9px 13px', marginBottom: 12, textAlign: 'left',
+                  }}>
+                    <p style={{ color: '#fca5a5', fontSize: 12, margin: 0 }}>{error}</p>
+                  </div>
+                )}
+                
+                <button
+                  type="submit"
+                  disabled={isLoading}
+                  style={{
+                    width: '100%', padding: '13px', borderRadius: 12, border: 'none',
+                    background: isLoading ? 'rgba(109,40,217,0.5)' : 'linear-gradient(135deg, #7c3aed 0%, #5b21b6 100%)',
+                    color: 'white', fontSize: 14, fontWeight: 600, cursor: isLoading ? 'not-allowed' : 'pointer',
+                    boxShadow: '0 4px 18px rgba(109,40,217,0.4)', transition: 'all 0.2s', marginBottom: 12,
+                  }}
+                >
+                  {isLoading ? 'Verifying...' : 'Unlock Browser'}
+                </button>
+                <button type="button" className="bv-btn-secondary"
+                  onClick={() => setMode('forgot')}
+                  style={{
+                    width: '100%', padding: '12px', borderRadius: 12,
+                    background: 'transparent', border: `1px solid ${c.inputBorder}`,
+                    color: c.textSubtle, fontSize: 14, cursor: 'pointer',
+                    fontWeight: 500, transition: 'all 0.2s',
+                  }}
+                >
+                  ← Go Back
+                </button>
+              </form>
             )}
           </div>
         </div>

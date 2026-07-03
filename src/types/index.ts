@@ -16,6 +16,7 @@ export interface AuthState {
   hasPin: boolean;
   emailVerified: boolean;
   recoveryEmail?: string;
+  hasBackupCodes: boolean;
 }
 
 export interface ActivityLogEntry {

@@ -587,16 +587,7 @@ export function LockScreen({ onHide }: LockScreenProps) {
           }}>
             {/* Logo */}
             <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 16 }}>
-              <div style={{
-                width: 56, height: 56,
-                background: c.iconBg,
-                borderRadius: 18, display: 'flex', alignItems: 'center', justifyContent: 'center',
-                boxShadow: '0 8px 24px rgba(124, 58, 237, 0.45)',
-              }}>
-                <svg width="28" height="28" viewBox="0 0 24 24" fill="none">
-                  <path d="M12 2L4 6V12C4 16.8 7.6 21.1 12 22.5C16.4 21.1 20 16.8 20 12V6L12 2Z" fill="white" />
-                </svg>
-              </div>
+              <img src={chrome.runtime.getURL('icons/icon128.png')} alt="BrowserVault Logo" style={{ width: 56, height: 56, flexShrink: 0, borderRadius: 18, boxShadow: '0 8px 24px rgba(124, 58, 237, 0.45)' }} />
             </div>
 
             <h1 style={{ color: c.textMain, fontSize: 18, fontWeight: 700, margin: '0 0 6px', letterSpacing: '-0.3px' }}>

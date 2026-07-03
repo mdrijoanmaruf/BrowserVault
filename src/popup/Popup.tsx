@@ -59,12 +59,7 @@ export function Popup() {
       <div className="flex items-center justify-between px-5 pt-5 pb-4 border-b border-slate-200 dark:border-white/[0.06] transition-colors duration-200">
         <div className="flex items-center gap-3">
           {/* Shield logo */}
-          <div className="w-8 h-8 bg-gradient-to-br from-violet-500 to-purple-700 rounded-lg flex items-center justify-center shadow shadow-purple-900/60 flex-shrink-0">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
-              <path d="M12 2L4 6V12C4 16.8 7.6 21.1 12 22.5C16.4 21.1 20 16.8 20 12V6L12 2Z" fill="white" fillOpacity="0.95"/>
-              <path d="M9 12.5L11 14.5L15 10.5" stroke="rgba(109,40,217,0.9)" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" fill="none"/>
-            </svg>
-          </div>
+          <img src={chrome.runtime.getURL('icons/icon128.png')} alt="BrowserVault Logo" className="w-8 h-8 flex-shrink-0 rounded-lg shadow shadow-purple-900/60" />
           <div>
             <h1 className="text-sm font-bold text-slate-900 dark:text-white leading-none">BrowserVault</h1>
             <p className="text-[10px] text-slate-500 dark:text-white/35 mt-0.5">Browser security</p>

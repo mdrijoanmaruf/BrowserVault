@@ -83,12 +83,7 @@ export function Sidebar({ activePage, onNavigate }: SidebarProps) {
     <aside className="w-60 flex-shrink-0 flex flex-col bg-white dark:bg-white/[0.03] border-r border-slate-200 dark:border-white/[0.07] h-full transition-colors duration-200">
       {/* Logo */}
       <div className="flex items-center gap-3 px-6 py-6 border-b border-slate-200 dark:border-white/[0.06] transition-colors duration-200">
-        <div className="w-9 h-9 bg-gradient-to-br from-violet-500 to-purple-700 rounded-xl flex items-center justify-center shadow shadow-purple-900/50 flex-shrink-0">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
-            <path d="M12 2L4 6V12C4 16.8 7.6 21.1 12 22.5C16.4 21.1 20 16.8 20 12V6L12 2Z" fill="white" fillOpacity="0.95"/>
-            <path d="M9 12.5L11 14.5L15 10.5" stroke="rgba(109,40,217,0.9)" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" fill="none"/>
-          </svg>
-        </div>
+        <img src={chrome.runtime.getURL('icons/icon128.png')} alt="BrowserVault Logo" className="w-9 h-9 flex-shrink-0 rounded-xl shadow shadow-purple-900/50" />
         <div>
           <p className="text-sm font-bold text-slate-900 dark:text-white leading-none">BrowserVault</p>
           <p className="text-[10px] text-slate-500 dark:text-white/35 mt-0.5">Settings Dashboard</p>

@@ -33,7 +33,20 @@ const LOCK_STATE_KEY = 'vault_lock_state';
   }
 })();
 
-// ── Message listener (for real-time SW broadcasts) ────────────────
+// ── Reactive state changes ────────────────────────────────────────────
+
+chrome.storage.onChanged.addListener((changes, area) => {
+  if (area === 'local' && changes[LOCK_STATE_KEY]) {
+    const lockState = changes[LOCK_STATE_KEY].newValue as { isLocked?: boolean } | undefined;
+    if (lockState?.isLocked === true) {
+      showOverlay();
+    } else {
+      hideOverlay();
+    }
+  }
+});
+
+// ── Message listener (for real-time SW broadcasts fallback) ───────────
 
 chrome.runtime.onMessage.addListener((message: RuntimeMessage) => {
   if (message?.action === 'SHOW_LOCK_OVERLAY') {

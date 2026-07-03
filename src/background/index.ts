@@ -55,6 +55,22 @@ chrome.runtime.onConnect.addListener((port) => {
 });
 
 async function initializeState(): Promise<void> {
+  const authState =
+    (await storage.getItem<AuthState>(STORAGE_KEYS.AUTH_STATE)) ??
+    { ...DEFAULT_AUTH_STATE };
+
+  // Check if this is a fresh browser session
+  try {
+    const sessionData = await chrome.storage.session.get('session_started');
+    if (!sessionData.session_started && authState.hasPassword) {
+      console.log('[BrowserVault] New browser session detected. Forcing lock.');
+      await lockBrowser();
+      await chrome.storage.session.set({ session_started: true });
+    }
+  } catch (e) {
+    console.error('Session storage error:', e);
+  }
+
   const lockState = await getLockStatus();
   console.log('[BrowserVault] Service Worker started. Lock state:', lockState);
 
@@ -355,6 +371,54 @@ chrome.runtime.onStartup.addListener(async () => {
       const encodedRedirect = encodeURIComponent(url);
       chrome.tabs.update(tab.id, { url: `${LOCK_PAGE_URL}?redirect=${encodedRedirect}` }).catch(() => {});
     }
+  }
+});
+
+/**
+ * Intercept new window creation (useful for when Chrome is running in the background
+ * and a new window is opened, which doesn't trigger onStartup).
+ */
+chrome.windows.onCreated.addListener(async (window) => {
+  if (!(await isCurrentlyLocked())) return;
+
+  // Short delay to allow tabs to be populated in the new window
+  setTimeout(async () => {
+    try {
+      const tabs = await chrome.tabs.query({ windowId: window.id });
+      for (const tab of tabs) {
+        if (!tab.id) continue;
+        const url = tab.url ?? tab.pendingUrl ?? '';
+        if (url.startsWith(LOCK_PAGE_URL)) continue;
+
+        if (url.startsWith('chrome://') || url === '' || url === 'about:blank') {
+          chrome.tabs.update(tab.id, { url: LOCK_PAGE_URL }).catch(() => {});
+        } else {
+          const encodedRedirect = encodeURIComponent(url);
+          chrome.tabs.update(tab.id, { url: `${LOCK_PAGE_URL}?redirect=${encodedRedirect}` }).catch(() => {});
+        }
+      }
+    } catch {
+      // Ignore errors if window closes quickly
+    }
+  }, 100);
+});
+
+/**
+ * Intercept window close to lock the browser when the last window is closed.
+ * This ensures the browser locks even if Chrome continues running in the background.
+ */
+chrome.windows.onRemoved.addListener(async () => {
+  try {
+    const windows = await chrome.windows.getAll({ windowTypes: ['normal', 'popup'] });
+    if (windows.length === 0) {
+      console.log('[BrowserVault] Last window closed. Forcing lock.');
+      const authState = await storage.getItem<AuthState>(STORAGE_KEYS.AUTH_STATE);
+      if (authState?.hasPassword) {
+        await lockBrowser();
+      }
+    }
+  } catch (e) {
+    console.error('Error on windows.onRemoved:', e);
   }
 });
 

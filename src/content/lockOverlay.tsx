@@ -33,7 +33,11 @@ function ensureHost(): { host: HTMLElement; shadow: ShadowRoot } {
       pointerEvents: 'auto',
     });
 
-    document.body.appendChild(_host);
+    if (document.body) {
+      document.body.appendChild(_host);
+    } else {
+      document.documentElement.appendChild(_host);
+    }
   }
 
   const existing = _host.shadowRoot;

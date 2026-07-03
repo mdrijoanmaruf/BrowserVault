@@ -12,6 +12,18 @@ export function AdvancedPage() {
   const { settings, updateSettings } = useSettings();
   const { addToast } = useToast();
 
+  const handleFactoryReset = async () => {
+    if (window.confirm("Are you sure you want to reset BrowserVault? This will remove your password and all settings.")) {
+      try {
+        await chrome.storage.local.clear();
+        await chrome.storage.session.clear();
+        window.location.reload();
+      } catch (err) {
+        addToast('Failed to reset extension.', 'error');
+      }
+    }
+  };
+
   const handleBiometricToggle = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const checked = e.target.checked;
     
@@ -125,6 +137,22 @@ export function AdvancedPage() {
             <div className="mt-4 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/5 rounded-lg p-3 transition-colors">
               <p className="text-xs text-slate-400 dark:text-white/30 text-center italic">No domains restricted yet.</p>
             </div>
+          </div>
+          
+          {/* Factory Reset */}
+          <div className="px-6 py-5 flex items-center justify-between gap-6">
+            <div>
+              <h3 className="text-sm font-medium text-red-600 dark:text-red-400">Factory Reset</h3>
+              <p className="text-xs text-slate-500 dark:text-white/40 mt-1 leading-relaxed">
+                Delete all data, remove your password, and reset settings to default.
+              </p>
+            </div>
+            <button
+              onClick={handleFactoryReset}
+              className="bg-red-50 dark:bg-red-500/15 hover:bg-red-100 dark:hover:bg-red-500/25 border border-red-200 dark:border-red-500/20 text-red-600 dark:text-red-400 px-4 py-2 rounded-xl text-sm font-medium transition-colors whitespace-nowrap"
+            >
+              Reset BrowserVault
+            </button>
           </div>
         </div>
       </div>

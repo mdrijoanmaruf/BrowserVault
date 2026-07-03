@@ -23,6 +23,16 @@ function onHide() {
   }
 }
 
+// React to unlocks from other tabs
+chrome.storage.onChanged.addListener((changes, area) => {
+  if (area === 'local' && changes['vault_lock_state']) {
+    const lockState = changes['vault_lock_state'].newValue as { isLocked?: boolean } | undefined;
+    if (lockState?.isLocked === false) {
+      onHide();
+    }
+  }
+});
+
 const root = document.getElementById('root')!;
 createRoot(root).render(
   <StrictMode>

@@ -1,4 +1,3 @@
-
 import { createContext, useContext, useEffect } from 'react';
 import type { ReactNode } from 'react';
 import { useSettings } from '@/hooks/useSettings';
@@ -17,8 +16,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const { settings, isLoading } = useSettings();
 
   const theme = settings.theme;
-  const isSystemDark = typeof window !== 'undefined' && window.matchMedia('(prefers-color-scheme: dark)').matches;
-  const resolvedTheme = theme === 'system' ? (isSystemDark ? 'dark' : 'light') : theme;
+  const isSystemDark =
+    typeof window !== 'undefined' &&
+    window.matchMedia('(prefers-color-scheme: dark)').matches;
+  const resolvedTheme =
+    theme === 'system' ? (isSystemDark ? 'dark' : 'light') : theme;
 
   useEffect(() => {
     const root = document.documentElement;

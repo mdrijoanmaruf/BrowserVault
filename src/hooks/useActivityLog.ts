@@ -1,5 +1,3 @@
-
-
 import { useState, useEffect, useCallback } from 'react';
 import type { ActivityLogEntry } from '@/types';
 
@@ -12,7 +10,9 @@ export function useActivityLog() {
     setIsLoading(true);
     setError(null);
     try {
-      const response = await chrome.runtime.sendMessage({ action: 'GET_ACTIVITY_LOG' }) as ActivityLogEntry[];
+      const response = (await chrome.runtime.sendMessage({
+        action: 'GET_ACTIVITY_LOG',
+      })) as ActivityLogEntry[];
       setLogs(response || []);
     } catch {
       setError('Could not connect to service worker.');

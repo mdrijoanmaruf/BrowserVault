@@ -1,17 +1,28 @@
 import { useState, useRef } from 'react';
 import type { UserSettings } from '@/types';
 import { useSettings } from '@/hooks/useSettings';
-import { 
-  LuMonitor, LuRocket, LuTrash2, 
-  LuFingerprint, LuLock, LuBell, LuPalette,
-  LuHistory, LuDownload, LuUpload
+import {
+  LuMonitor,
+  LuRocket,
+  LuTrash2,
+  LuFingerprint,
+  LuLock,
+  LuBell,
+  LuPalette,
+  LuHistory,
+  LuDownload,
+  LuUpload,
 } from 'react-icons/lu';
 
 // ─────────────────────────────────────────────────────────────
 // Shared UI primitives
 // ─────────────────────────────────────────────────────────────
 
-function SectionCard({ title, description, children }: {
+function SectionCard({
+  title,
+  description,
+  children,
+}: {
   title: string;
   description?: string;
   children: React.ReactNode;
@@ -19,8 +30,14 @@ function SectionCard({ title, description, children }: {
   return (
     <div className="bg-white dark:bg-white/[0.03] border border-slate-200/80 dark:border-white/[0.07] rounded-3xl overflow-hidden mb-6 shadow-sm transition-colors duration-200">
       <div className="px-8 py-6 border-b border-slate-100 dark:border-white/[0.06] transition-colors duration-200">
-        <h2 className="text-[17px] font-bold text-slate-900 dark:text-white">{title}</h2>
-        {description && <p className="text-[13px] text-slate-500 dark:text-white/40 mt-1 font-medium">{description}</p>}
+        <h2 className="text-[17px] font-bold text-slate-900 dark:text-white">
+          {title}
+        </h2>
+        {description && (
+          <p className="text-[13px] text-slate-500 dark:text-white/40 mt-1 font-medium">
+            {description}
+          </p>
+        )}
       </div>
       <div className="divide-y divide-slate-50 dark:divide-white/[0.02] transition-colors duration-200">
         {children}
@@ -29,7 +46,12 @@ function SectionCard({ title, description, children }: {
   );
 }
 
-function SettingRow({ label, description, icon, children }: {
+function SettingRow({
+  label,
+  description,
+  icon,
+  children,
+}: {
   label: string;
   description?: string;
   icon?: React.ReactNode;
@@ -44,8 +66,14 @@ function SettingRow({ label, description, icon, children }: {
           </div>
         )}
         <div className="flex-1 min-w-0">
-          <p className="text-[14px] font-semibold text-slate-900 dark:text-white/90">{label}</p>
-          {description && <p className="text-[12px] text-slate-500 dark:text-white/40 mt-0.5 leading-relaxed font-medium">{description}</p>}
+          <p className="text-[14px] font-semibold text-slate-900 dark:text-white/90">
+            {label}
+          </p>
+          {description && (
+            <p className="text-[12px] text-slate-500 dark:text-white/40 mt-0.5 leading-relaxed font-medium">
+              {description}
+            </p>
+          )}
         </div>
       </div>
       <div className="flex-shrink-0">{children}</div>
@@ -53,7 +81,15 @@ function SettingRow({ label, description, icon, children }: {
   );
 }
 
-function Toggle({ checked, onChange, id }: { checked: boolean; onChange: (v: boolean) => void; id: string }) {
+function Toggle({
+  checked,
+  onChange,
+  id,
+}: {
+  checked: boolean;
+  onChange: (v: boolean) => void;
+  id: string;
+}) {
   return (
     <button
       id={id}
@@ -66,15 +102,22 @@ function Toggle({ checked, onChange, id }: { checked: boolean; onChange: (v: boo
         ${checked ? 'bg-[#5b32f5]' : 'bg-slate-200 dark:bg-white/15'}
       `}
     >
-      <span className={`
+      <span
+        className={`
         inline-block h-5 w-5 transform rounded-full bg-white shadow-sm transition-transform duration-200
         ${checked ? 'translate-x-[20px]' : 'translate-x-[3px]'}
-      `} />
+      `}
+      />
     </button>
   );
 }
 
-function Select({ value, onChange, options, id }: {
+function Select({
+  value,
+  onChange,
+  options,
+  id,
+}: {
   value: string | number;
   onChange: (v: string) => void;
   options: { value: string | number; label: string }[];
@@ -88,7 +131,11 @@ function Select({ value, onChange, options, id }: {
       className="bg-white dark:bg-white/[0.07] border border-slate-200 dark:border-white/15 text-slate-800 dark:text-white text-[13px] font-medium rounded-xl px-4 py-2 focus:outline-none focus:border-[#5b32f5] focus:ring-1 focus:ring-[#5b32f5] cursor-pointer transition-colors shadow-sm"
     >
       {options.map((o) => (
-        <option key={o.value} value={o.value} className="bg-white dark:bg-[#1a1030] text-slate-900 dark:text-white font-medium">
+        <option
+          key={o.value}
+          value={o.value}
+          className="bg-white dark:bg-[#1a1030] text-slate-900 dark:text-white font-medium"
+        >
           {o.label}
         </option>
       ))}
@@ -96,7 +143,13 @@ function Select({ value, onChange, options, id }: {
   );
 }
 
-function NumberStepper({ value, min, max, onChange, id }: {
+function NumberStepper({
+  value,
+  min,
+  max,
+  onChange,
+  id,
+}: {
   value: number;
   min: number;
   max: number;
@@ -137,20 +190,34 @@ function NumberStepper({ value, min, max, onChange, id }: {
   );
 }
 
-function ActionButton({ onClick, variant = 'secondary', children, id }: {
+function ActionButton({
+  onClick,
+  variant = 'secondary',
+  children,
+  id,
+}: {
   onClick: () => void;
   variant?: 'primary' | 'secondary' | 'danger';
   children: React.ReactNode;
   id: string;
 }) {
-  const base = 'px-5 py-2.5 rounded-xl text-[13px] font-semibold transition-all duration-150 focus:outline-none focus:ring-2 focus:ring-offset-0 shadow-sm';
+  const base =
+    'px-5 py-2.5 rounded-xl text-[13px] font-semibold transition-all duration-150 focus:outline-none focus:ring-2 focus:ring-offset-0 shadow-sm';
   const variants = {
-    primary: 'bg-[#5b32f5] hover:bg-[#4a26d4] text-white focus:ring-[#5b32f5]/40',
-    secondary: 'bg-white dark:bg-white/[0.07] hover:bg-slate-50 dark:hover:bg-white/12 text-slate-700 dark:text-white/80 border border-slate-200 dark:border-white/10 focus:ring-slate-300 dark:focus:ring-white/20',
-    danger: 'bg-red-50 dark:bg-red-500/15 hover:bg-red-100 dark:hover:bg-red-500/25 text-red-600 dark:text-red-400 border border-red-200 dark:border-red-500/20 focus:ring-red-500/30',
+    primary:
+      'bg-[#5b32f5] hover:bg-[#4a26d4] text-white focus:ring-[#5b32f5]/40',
+    secondary:
+      'bg-white dark:bg-white/[0.07] hover:bg-slate-50 dark:hover:bg-white/12 text-slate-700 dark:text-white/80 border border-slate-200 dark:border-white/10 focus:ring-slate-300 dark:focus:ring-white/20',
+    danger:
+      'bg-red-50 dark:bg-red-500/15 hover:bg-red-100 dark:hover:bg-red-500/25 text-red-600 dark:text-red-400 border border-red-200 dark:border-red-500/20 focus:ring-red-500/30',
   };
   return (
-    <button id={id} type="button" onClick={onClick} className={`${base} ${variants[variant]}`}>
+    <button
+      id={id}
+      type="button"
+      onClick={onClick}
+      className={`${base} ${variants[variant]}`}
+    >
       {children}
     </button>
   );
@@ -160,19 +227,56 @@ function ActionButton({ onClick, variant = 'secondary', children, id }: {
 // Toast notification
 // ─────────────────────────────────────────────────────────────
 
-function Toast({ message, type }: { message: string; type: 'success' | 'error' }) {
+function Toast({
+  message,
+  type,
+}: {
+  message: string;
+  type: 'success' | 'error';
+}) {
   return (
-    <div className={`
+    <div
+      className={`
       fixed bottom-8 right-8 z-50 flex items-center gap-3 px-5 py-3.5 rounded-2xl shadow-2xl
       border text-[14px] font-semibold animate-[fadeInUp_0.3s_ease-out]
-      ${type === 'success'
-        ? 'bg-[#f4f1fe] dark:bg-violet-500/15 border-violet-200 dark:border-violet-500/25 text-[#5b32f5] dark:text-violet-300'
-        : 'bg-red-50 dark:bg-red-500/15 border-red-200 dark:border-red-500/25 text-red-700 dark:text-red-300'}
-    `}>
-      {type === 'success'
-        ? <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7"/></svg>
-        : <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12"/></svg>
+      ${
+        type === 'success'
+          ? 'bg-[#f4f1fe] dark:bg-violet-500/15 border-violet-200 dark:border-violet-500/25 text-[#5b32f5] dark:text-violet-300'
+          : 'bg-red-50 dark:bg-red-500/15 border-red-200 dark:border-red-500/25 text-red-700 dark:text-red-300'
       }
+    `}
+    >
+      {type === 'success' ? (
+        <svg
+          width="18"
+          height="18"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={2.5}
+            d="M5 13l4 4L19 7"
+          />
+        </svg>
+      ) : (
+        <svg
+          width="18"
+          height="18"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={2.5}
+            d="M6 18L18 6M6 6l12 12"
+          />
+        </svg>
+      )}
       {message}
     </div>
   );
@@ -184,7 +288,10 @@ function Toast({ message, type }: { message: string; type: 'success' | 'error' }
 
 export function SettingsPage() {
   const { settings, isLoading, updateSettings } = useSettings();
-  const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
+  const [toast, setToast] = useState<{
+    message: string;
+    type: 'success' | 'error';
+  } | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   function showToast(message: string, type: 'success' | 'error' = 'success') {
@@ -208,7 +315,9 @@ export function SettingsPage() {
       version: '1.0.0',
       settings,
     };
-    const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
+    const blob = new Blob([JSON.stringify(exportData, null, 2)], {
+      type: 'application/json',
+    });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
@@ -249,7 +358,10 @@ export function SettingsPage() {
     return (
       <div className="space-y-6 animate-pulse">
         {[1, 2].map((i) => (
-          <div key={i} className="h-64 bg-white/[0.03] rounded-3xl border border-white/[0.06]" />
+          <div
+            key={i}
+            className="h-64 bg-white/[0.03] rounded-3xl border border-white/[0.06]"
+          />
         ))}
       </div>
     );
@@ -282,7 +394,9 @@ export function SettingsPage() {
           <Select
             id="select-start-state"
             value={settings.startState}
-            onChange={(v) => handleUpdate({ startState: v as UserSettings['startState'] })}
+            onChange={(v) =>
+              handleUpdate({ startState: v as UserSettings['startState'] })
+            }
             options={[
               { value: 'history', label: 'Restore with History' },
               { value: 'allTabs', label: 'Restore All Tabs' },
@@ -293,7 +407,10 @@ export function SettingsPage() {
         </SettingRow>
 
         {settings.startState === 'customUrl' && (
-          <SettingRow label="Custom URL" description="The URL to open when unlocking.">
+          <SettingRow
+            label="Custom URL"
+            description="The URL to open when unlocking."
+          >
             <input
               id="input-custom-url"
               type="url"
@@ -359,8 +476,8 @@ export function SettingsPage() {
               value={settings.idleDurationMinutes}
               onChange={(v) => handleUpdate({ idleDurationMinutes: Number(v) })}
               options={[
-                { value: 1,  label: '1 minute' },
-                { value: 5,  label: '5 minutes' },
+                { value: 1, label: '1 minute' },
+                { value: 5, label: '5 minutes' },
                 { value: 10, label: '10 minutes' },
                 { value: 15, label: '15 minutes' },
                 { value: 30, label: '30 minutes' },
@@ -382,19 +499,21 @@ export function SettingsPage() {
           />
         </SettingRow>
 
-        <SettingRow 
+        <SettingRow
           icon={<LuPalette className="w-[22px] h-[22px]" />}
-          label="Theme" 
+          label="Theme"
           description="Interface colour preference."
         >
           <Select
             id="select-theme"
             value={settings.theme}
-            onChange={(v) => handleUpdate({ theme: v as UserSettings['theme'] })}
+            onChange={(v) =>
+              handleUpdate({ theme: v as UserSettings['theme'] })
+            }
             options={[
               { value: 'system', label: 'System default' },
-              { value: 'dark',   label: 'Dark' },
-              { value: 'light',  label: 'Light' },
+              { value: 'dark', label: 'Dark' },
+              { value: 'light', label: 'Light' },
             ]}
           />
         </SettingRow>
@@ -448,7 +567,10 @@ export function SettingsPage() {
               className="hidden"
               id="file-import-input"
             />
-            <ActionButton id="btn-import" onClick={() => fileInputRef.current?.click()}>
+            <ActionButton
+              id="btn-import"
+              onClick={() => fileInputRef.current?.click()}
+            >
               Import JSON
             </ActionButton>
           </>
@@ -459,7 +581,11 @@ export function SettingsPage() {
           label="Clear Browser History"
           description="Permanently delete all browser history right now."
         >
-          <ActionButton id="btn-clear-history" onClick={handleClearHistory} variant="danger">
+          <ActionButton
+            id="btn-clear-history"
+            onClick={handleClearHistory}
+            variant="danger"
+          >
             Clear Now
           </ActionButton>
         </SettingRow>

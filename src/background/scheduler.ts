@@ -1,4 +1,3 @@
-
 import { lockBrowser } from './lockController';
 import type { UserSettings } from '@/types';
 
@@ -15,7 +14,7 @@ export function startScheduledLock(settings: UserSettings) {
   const [hours, minutes] = settings.scheduledLockTime.split(':').map(Number);
   const now = new Date();
   const nextOccurrence = new Date();
-  
+
   nextOccurrence.setHours(hours, minutes, 0, 0);
 
   if (nextOccurrence.getTime() <= now.getTime()) {
@@ -25,10 +24,12 @@ export function startScheduledLock(settings: UserSettings) {
 
   chrome.alarms.create(SCHEDULE_ALARM_NAME, {
     when: nextOccurrence.getTime(),
-    periodInMinutes: 24 * 60 // Repeat daily
+    periodInMinutes: 24 * 60, // Repeat daily
   });
 
-  console.log(`[BrowserVault] Scheduled lock set for ${nextOccurrence.toLocaleString()}`);
+  console.log(
+    `[BrowserVault] Scheduled lock set for ${nextOccurrence.toLocaleString()}`
+  );
 }
 
 export function stopScheduledLock() {
@@ -39,7 +40,9 @@ export function stopScheduledLock() {
 export function setupSchedulerListener() {
   chrome.alarms.onAlarm.addListener(async (alarm) => {
     if (alarm.name === SCHEDULE_ALARM_NAME) {
-      console.log(`[BrowserVault] Scheduled lock time reached. Locking browser.`);
+      console.log(
+        `[BrowserVault] Scheduled lock time reached. Locking browser.`
+      );
       await lockBrowser();
     }
   });

@@ -1,30 +1,32 @@
-
-
 import { lockBrowser } from './lockController';
 import { showNotification, clearNotification } from './notificationsManager';
 import type { UserSettings } from '@/types';
 
-
-
 let _watching = false;
-let _currentListener: ((state: 'active' | 'idle' | 'locked') => void) | null = null;
+let _currentListener: ((state: 'active' | 'idle' | 'locked') => void) | null =
+  null;
 let _warnTimer: ReturnType<typeof setTimeout> | null = null;
 let _lockTimer: ReturnType<typeof setTimeout> | null = null;
 
-
-
 function clearPendingTimers(): void {
-  if (_warnTimer !== null) { clearTimeout(_warnTimer); _warnTimer = null; }
-  if (_lockTimer !== null) { clearTimeout(_lockTimer); _lockTimer = null; }
+  if (_warnTimer !== null) {
+    clearTimeout(_warnTimer);
+    _warnTimer = null;
+  }
+  if (_lockTimer !== null) {
+    clearTimeout(_lockTimer);
+    _lockTimer = null;
+  }
   clearNotification('bv-idle-warning');
 }
 
-
 export type IdleWatcherSettings = Pick<
   UserSettings,
-  'idleModeEnabled' | 'idleDurationMinutes' | 'notifyBeforeLock' | 'autoLockOnSleep'
+  | 'idleModeEnabled'
+  | 'idleDurationMinutes'
+  | 'notifyBeforeLock'
+  | 'autoLockOnSleep'
 >;
-
 
 export function startIdleWatcher(settings: IdleWatcherSettings): void {
   stopIdleWatcher();
@@ -34,12 +36,11 @@ export function startIdleWatcher(settings: IdleWatcherSettings): void {
     return;
   }
 
-  const intervalSeconds = settings.idleModeEnabled 
+  const intervalSeconds = settings.idleModeEnabled
     ? Math.max(15, settings.idleDurationMinutes * 60)
     : 60; // default if only watching for sleep
-    
-  chrome.idle.setDetectionInterval(intervalSeconds);
 
+  chrome.idle.setDetectionInterval(intervalSeconds);
 
   const WARN_LEAD_SECONDS = 30;
 
@@ -56,7 +57,9 @@ export function startIdleWatcher(settings: IdleWatcherSettings): void {
       clearPendingTimers();
 
       if (idleState === 'locked' && settings.autoLockOnSleep) {
-        console.log('[BrowserVault] System locked/sleeping — locking browser immediately');
+        console.log(
+          '[BrowserVault] System locked/sleeping — locking browser immediately'
+        );
         lockBrowser();
         return;
       }
@@ -75,13 +78,17 @@ export function startIdleWatcher(settings: IdleWatcherSettings): void {
         // Lock after the warning lead time
         _lockTimer = setTimeout(async () => {
           clearNotification('bv-idle-warning');
-          console.log('[BrowserVault] Idle threshold reached — locking browser');
+          console.log(
+            '[BrowserVault] Idle threshold reached — locking browser'
+          );
           await lockBrowser();
         }, WARN_LEAD_SECONDS * 1000);
       } else {
         // No warning — lock immediately
         _lockTimer = setTimeout(async () => {
-          console.log('[BrowserVault] Idle threshold reached — locking browser');
+          console.log(
+            '[BrowserVault] Idle threshold reached — locking browser'
+          );
           await lockBrowser();
         }, 0);
       }
@@ -104,7 +111,6 @@ export function stopIdleWatcher(): void {
   }
   _watching = false;
 }
-
 
 export function isWatching(): boolean {
   return _watching;

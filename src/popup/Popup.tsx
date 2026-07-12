@@ -13,7 +13,11 @@
  */
 
 import { useState, useEffect, useCallback } from 'react';
-import { STORAGE_KEYS, DEFAULT_AUTH_STATE, DEFAULT_LOCK_STATE } from '@/lib/constants';
+import {
+  STORAGE_KEYS,
+  DEFAULT_AUTH_STATE,
+  DEFAULT_LOCK_STATE,
+} from '@/lib/constants';
 import { StatusBadge } from './components/StatusBadge';
 import { LockButton } from './components/LockButton';
 import { QuickMenu } from './components/QuickMenu';
@@ -23,7 +27,10 @@ import type { AuthState, LockState } from '@/types';
 function storageGet<T>(key: string): Promise<T | null> {
   return new Promise((resolve) => {
     chrome.storage.local.get([key], (result) => {
-      if (chrome.runtime.lastError) { resolve(null); return; }
+      if (chrome.runtime.lastError) {
+        resolve(null);
+        return;
+      }
       resolve(result[key] !== undefined ? (result[key] as T) : null);
     });
   });
@@ -57,22 +64,31 @@ export function Popup() {
 
   // ── Load state directly from storage ────────────────────────
   const loadState = useCallback(async () => {
-    const auth = (await storageGet<AuthState>(STORAGE_KEYS.AUTH_STATE)) ?? { ...DEFAULT_AUTH_STATE };
-    const lock = (await storageGet<LockState>(STORAGE_KEYS.LOCK_STATE)) ?? { ...DEFAULT_LOCK_STATE };
+    const auth = (await storageGet<AuthState>(STORAGE_KEYS.AUTH_STATE)) ?? {
+      ...DEFAULT_AUTH_STATE,
+    };
+    const lock = (await storageGet<LockState>(STORAGE_KEYS.LOCK_STATE)) ?? {
+      ...DEFAULT_LOCK_STATE,
+    };
     setLockState(lock);
     setView(auth.hasPassword ? 'main' : 'setup');
   }, []);
 
-  useEffect(() => { loadState(); }, [loadState]);
-
-
+  useEffect(() => {
+    loadState();
+  }, [loadState]);
 
   // ── Lock / Unlock — writes storage + broadcasts to all tabs directly ────
   const broadcastToTabs = async (action: string) => {
     try {
       const tabs = await chrome.tabs.query({});
       for (const tab of tabs) {
-        if (tab.id && tab.url && !tab.url.startsWith('chrome://') && !tab.url.startsWith('chrome-extension://')) {
+        if (
+          tab.id &&
+          tab.url &&
+          !tab.url.startsWith('chrome://') &&
+          !tab.url.startsWith('chrome-extension://')
+        ) {
           chrome.tabs.sendMessage(tab.id, { action }).catch(() => {});
         }
       }
@@ -87,7 +103,11 @@ export function Popup() {
     try {
       notifySW('LOCK_BROWSER');
       // Update local state directly so UI responds fast
-      const newLock: LockState = { ...lockState, isLocked: true, failedAttemptCount: 0 };
+      const newLock: LockState = {
+        ...lockState,
+        isLocked: true,
+        failedAttemptCount: 0,
+      };
       setLockState(newLock);
     } catch {
       setLockError('Failed to lock. Please try again.');
@@ -100,7 +120,12 @@ export function Popup() {
     setIsLocking(true);
     setLockError('');
     try {
-      const newLock: LockState = { ...lockState, isLocked: false, failedAttemptCount: 0, cooldownExpiresAt: null };
+      const newLock: LockState = {
+        ...lockState,
+        isLocked: false,
+        failedAttemptCount: 0,
+        cooldownExpiresAt: null,
+      };
       await storageSet(STORAGE_KEYS.LOCK_STATE, newLock);
       setLockState(newLock);
       await broadcastToTabs('HIDE_LOCK_OVERLAY');
@@ -125,8 +150,12 @@ export function Popup() {
             className="w-[42px] h-[42px] flex-shrink-0"
           />
           <div>
-            <h1 className="text-[17px] font-bold text-slate-900 leading-tight">BrowserVault</h1>
-            <p className="text-[13px] text-slate-400 font-medium mt-0.5">Browser Security</p>
+            <h1 className="text-[17px] font-bold text-slate-900 leading-tight">
+              BrowserVault
+            </h1>
+            <p className="text-[13px] text-slate-400 font-medium mt-0.5">
+              Browser Security
+            </p>
           </div>
         </div>
         {view === 'main' && <StatusBadge isLocked={isLocked} />}
@@ -134,7 +163,6 @@ export function Popup() {
 
       {/* Body */}
       <div className="flex-1 px-6 py-4 flex flex-col">
-
         {/* Loading */}
         {view === 'loading' && (
           <div className="flex flex-col gap-3 animate-pulse">
@@ -147,16 +175,34 @@ export function Popup() {
         {view === 'setup' && (
           <div className="flex flex-col gap-3 h-full justify-center mt-4">
             <div className="text-center mb-2">
-              <h2 className="text-sm font-bold text-slate-900">Welcome to BrowserVault</h2>
-              <p className="text-[11px] text-slate-500 mt-1 px-2">Please complete the setup in the new tab to secure your browser.</p>
+              <h2 className="text-sm font-bold text-slate-900">
+                Welcome to BrowserVault
+              </h2>
+              <p className="text-[11px] text-slate-500 mt-1 px-2">
+                Please complete the setup in the new tab to secure your browser.
+              </p>
             </div>
 
             <button
-              onClick={() => chrome.tabs.create({ url: chrome.runtime.getURL('setup.html') })}
+              onClick={() =>
+                chrome.tabs.create({ url: chrome.runtime.getURL('setup.html') })
+              }
               className="w-full bg-[#5a8bf7] hover:bg-[#4673d4] text-white text-sm font-semibold py-3 rounded-xl transition-colors flex items-center justify-center gap-2"
             >
               Start Setup
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg>
+              <svg
+                width="16"
+                height="16"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2.5"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <line x1="5" y1="12" x2="19" y2="12"></line>
+                <polyline points="12 5 19 12 12 19"></polyline>
+              </svg>
             </button>
           </div>
         )}
@@ -181,7 +227,16 @@ export function Popup() {
               {/* Idle info message */}
               <div className="flex items-center gap-3 px-4 py-3 rounded-[16px] bg-[#f4f7ff] border border-[#e1e9ff]">
                 <div className="text-[#5a8bf7] flex-shrink-0">
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <svg
+                    width="18"
+                    height="18"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2.5"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
                     <circle cx="12" cy="12" r="10"></circle>
                     <polyline points="12 6 12 12 16 14"></polyline>
                   </svg>

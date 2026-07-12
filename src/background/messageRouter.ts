@@ -1,4 +1,4 @@
-
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 type MessageHandler = (payload: any) => Promise<any> | any;
 
 export class MessageRouter {
@@ -14,14 +14,17 @@ export class MessageRouter {
         const handler = this.handlers.get(message.action);
         if (handler) {
           Promise.resolve(handler(message.payload))
-            .then(response => {
+            .then((response) => {
               sendResponse({ success: true, data: response });
             })
-            .catch(error => {
-              sendResponse({ success: false, error: error.message || String(error) });
+            .catch((error) => {
+              sendResponse({
+                success: false,
+                error: error.message || String(error),
+              });
             });
-            
-          return true; 
+
+          return true;
         }
       }
       return false;

@@ -8,7 +8,10 @@ export const storage = {
       return new Promise((resolve) => {
         chrome.storage.local.get([key], (result) => {
           if (chrome.runtime.lastError) {
-            console.error('[BrowserVault] Storage error:', chrome.runtime.lastError);
+            console.error(
+              '[BrowserVault] Storage error:',
+              chrome.runtime.lastError
+            );
             resolve(defaultValue !== undefined ? defaultValue : null);
             return;
           }

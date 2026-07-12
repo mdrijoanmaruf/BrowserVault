@@ -1,5 +1,3 @@
-
-
 import { storage } from './storage';
 import { STORAGE_KEYS } from './constants';
 import type { ActivityLogEntry } from '@/types';
@@ -10,7 +8,9 @@ export async function logActivity(
   type: ActivityLogEntry['type'],
   details?: string
 ): Promise<void> {
-  const existing = (await storage.getItem<ActivityLogEntry[]>(STORAGE_KEYS.ACTIVITY_LOG)) ?? [];
+  const existing =
+    (await storage.getItem<ActivityLogEntry[]>(STORAGE_KEYS.ACTIVITY_LOG)) ??
+    [];
 
   const entry: ActivityLogEntry = {
     id: `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
@@ -21,21 +21,23 @@ export async function logActivity(
 
   const updated = [...existing, entry];
   // Keep only the most recent MAX_ENTRIES
-  const trimmed = updated.length > MAX_ENTRIES ? updated.slice(updated.length - MAX_ENTRIES) : updated;
+  const trimmed =
+    updated.length > MAX_ENTRIES
+      ? updated.slice(updated.length - MAX_ENTRIES)
+      : updated;
 
   await storage.setItem<ActivityLogEntry[]>(STORAGE_KEYS.ACTIVITY_LOG, trimmed);
 }
 
-
 export async function getActivityLog(): Promise<ActivityLogEntry[]> {
-  return (await storage.getItem<ActivityLogEntry[]>(STORAGE_KEYS.ACTIVITY_LOG)) ?? [];
+  return (
+    (await storage.getItem<ActivityLogEntry[]>(STORAGE_KEYS.ACTIVITY_LOG)) ?? []
+  );
 }
-
 
 export async function clearActivityLog(): Promise<void> {
   await storage.setItem<ActivityLogEntry[]>(STORAGE_KEYS.ACTIVITY_LOG, []);
 }
-
 
 export async function pruneActivityLog(retentionDays: number): Promise<void> {
   if (retentionDays >= 36500) return;
@@ -47,6 +49,9 @@ export async function pruneActivityLog(retentionDays: number): Promise<void> {
   const pruned = existing.filter((entry) => entry.timestamp >= cutoff);
 
   if (pruned.length !== existing.length) {
-    await storage.setItem<ActivityLogEntry[]>(STORAGE_KEYS.ACTIVITY_LOG, pruned);
+    await storage.setItem<ActivityLogEntry[]>(
+      STORAGE_KEYS.ACTIVITY_LOG,
+      pruned
+    );
   }
 }

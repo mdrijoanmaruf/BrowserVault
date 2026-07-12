@@ -1,5 +1,3 @@
-
-
 import { createRoot } from 'react-dom/client';
 import type { Root } from 'react-dom/client';
 import { StrictMode } from 'react';

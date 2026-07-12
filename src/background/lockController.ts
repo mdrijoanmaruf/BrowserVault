@@ -1,13 +1,14 @@
-
-
 import { storage } from '@/lib/storage';
 import { verifyPassword } from '@/lib/crypto';
-import { STORAGE_KEYS, DEFAULT_LOCK_STATE, DEFAULT_USER_SETTINGS } from '@/lib/constants';
+import {
+  STORAGE_KEYS,
+  DEFAULT_LOCK_STATE,
+  DEFAULT_USER_SETTINGS,
+} from '@/lib/constants';
 import { logActivity } from '@/lib/activityLog';
 import type { LockState, UserSettings } from '@/types';
 
 const DEFAULT_COOLDOWN_MS = 5 * 60 * 1000;
-
 
 async function getLockState(): Promise<LockState> {
   const state = await storage.getItem<LockState>(STORAGE_KEYS.LOCK_STATE);
@@ -18,11 +19,15 @@ async function saveLockState(state: LockState): Promise<void> {
   await storage.setItem<LockState>(STORAGE_KEYS.LOCK_STATE, state);
 }
 
-
-async function broadcastToAllTabs(message: Record<string, unknown>): Promise<void> {
+async function broadcastToAllTabs(
+  message: Record<string, unknown>
+): Promise<void> {
   const tabs = await chrome.tabs.query({});
   const sends = tabs
-    .filter((tab) => tab.id !== undefined && tab.url && !tab.url.startsWith('chrome://'))
+    .filter(
+      (tab) =>
+        tab.id !== undefined && tab.url && !tab.url.startsWith('chrome://')
+    )
     .map((tab) =>
       chrome.tabs.sendMessage(tab.id!, message).catch(() => {
         // Some tabs may not have the content script — ignore silently
@@ -45,7 +50,6 @@ export interface UnlockResult {
   error?: string;
 }
 
-
 export async function lockBrowser(): Promise<void> {
   const state = await getLockState();
   state.isLocked = true;
@@ -54,7 +58,9 @@ export async function lockBrowser(): Promise<void> {
   await logActivity('LOCK');
   console.log('[BrowserVault] Browser locked — redirecting tabs');
 
-  const settings = await storage.getItem<UserSettings>(STORAGE_KEYS.SETTINGS) ?? { ...DEFAULT_USER_SETTINGS } as UserSettings;
+  const settings =
+    (await storage.getItem<UserSettings>(STORAGE_KEYS.SETTINGS)) ??
+    ({ ...DEFAULT_USER_SETTINGS } as UserSettings);
   if (settings.clearHistoryOnLock) {
     try {
       await chrome.history.deleteAll();
@@ -69,13 +75,15 @@ export async function lockBrowser(): Promise<void> {
   for (const tab of tabs) {
     if (!tab.id) continue;
     const url = tab.url ?? tab.pendingUrl ?? '';
-    
+
     // Don't redirect tabs that are already on the lock page
     if (url.startsWith(LOCK_PAGE_URL)) continue;
 
     // For all pages, redirect to the lock screen with the original URL saved
     const encodedRedirect = url ? encodeURIComponent(url) : '';
-    const redirectUrl = encodedRedirect ? `${LOCK_PAGE_URL}?redirect=${encodedRedirect}` : LOCK_PAGE_URL;
+    const redirectUrl = encodedRedirect
+      ? `${LOCK_PAGE_URL}?redirect=${encodedRedirect}`
+      : LOCK_PAGE_URL;
     chrome.tabs.update(tab.id, { url: redirectUrl }).catch(() => {});
   }
 
@@ -97,7 +105,10 @@ export async function unlockBrowser(
   const state = await getLockState();
 
   // ── Cooldown check (Day 13) ──────────────────────────────
-  if (state.cooldownExpiresAt !== null && Date.now() < state.cooldownExpiresAt) {
+  if (
+    state.cooldownExpiresAt !== null &&
+    Date.now() < state.cooldownExpiresAt
+  ) {
     return {
       success: false,
       cooldownActive: true,
@@ -106,7 +117,10 @@ export async function unlockBrowser(
   }
 
   // If cooldown has expired, clear it
-  if (state.cooldownExpiresAt !== null && Date.now() >= state.cooldownExpiresAt) {
+  if (
+    state.cooldownExpiresAt !== null &&
+    Date.now() >= state.cooldownExpiresAt
+  ) {
     state.cooldownExpiresAt = null;
     state.failedAttemptCount = 0;
     await saveLockState(state);
@@ -116,7 +130,8 @@ export async function unlockBrowser(
   let isValid = await verifyPassword(password, storedHash, storedSalt);
 
   if (!isValid) {
-    const backupCodesHashes = await storage.getItem<string[]>('vault_backup_codes');
+    const backupCodesHashes =
+      await storage.getItem<string[]>('vault_backup_codes');
     if (backupCodesHashes && backupCodesHashes.length > 0) {
       for (let i = 0; i < backupCodesHashes.length; i++) {
         if (await verifyPassword(password, backupCodesHashes[i], storedSalt)) {
@@ -142,14 +157,26 @@ export async function unlockBrowser(
 
     await broadcastToAllTabs({ action: 'HIDE_LOCK_OVERLAY' });
 
-    const currentSettings = await storage.getItem<UserSettings>(STORAGE_KEYS.SETTINGS) ?? { ...DEFAULT_USER_SETTINGS } as UserSettings;
-    if (currentSettings.startState === 'customUrl' && currentSettings.customUrl) {
+    const currentSettings =
+      (await storage.getItem<UserSettings>(STORAGE_KEYS.SETTINGS)) ??
+      ({ ...DEFAULT_USER_SETTINGS } as UserSettings);
+    if (
+      currentSettings.startState === 'customUrl' &&
+      currentSettings.customUrl
+    ) {
       try {
-        const activeTabs = await chrome.tabs.query({ active: true, currentWindow: true });
+        const activeTabs = await chrome.tabs.query({
+          active: true,
+          currentWindow: true,
+        });
         if (activeTabs.length > 0 && activeTabs[0].id) {
-          chrome.tabs.update(activeTabs[0].id, { url: currentSettings.customUrl }).catch(() => {});
+          chrome.tabs
+            .update(activeTabs[0].id, { url: currentSettings.customUrl })
+            .catch(() => {});
         } else {
-          chrome.tabs.create({ url: currentSettings.customUrl }).catch(() => {});
+          chrome.tabs
+            .create({ url: currentSettings.customUrl })
+            .catch(() => {});
         }
       } catch (e) {
         console.error('[BrowserVault] Failed to open custom URL:', e);
@@ -161,15 +188,23 @@ export async function unlockBrowser(
 
   // ── Failed attempt ───────────────────────────────────────
   state.failedAttemptCount += 1;
-  await logActivity('FAILED_ATTEMPT', `Attempt ${state.failedAttemptCount} of ${maxAttempts}`);
+  await logActivity(
+    'FAILED_ATTEMPT',
+    `Attempt ${state.failedAttemptCount} of ${maxAttempts}`
+  );
 
   if (state.failedAttemptCount >= maxAttempts) {
     // Trigger cooldown (Day 13)
     state.cooldownExpiresAt = Date.now() + cooldownMs;
     await saveLockState(state);
 
-    await logActivity('SETTINGS_CHANGE', `Cooldown triggered after ${maxAttempts} failed attempts`);
-    console.warn(`[BrowserVault] Max attempts reached — cooldown until ${new Date(state.cooldownExpiresAt).toISOString()}`);
+    await logActivity(
+      'SETTINGS_CHANGE',
+      `Cooldown triggered after ${maxAttempts} failed attempts`
+    );
+    console.warn(
+      `[BrowserVault] Max attempts reached — cooldown until ${new Date(state.cooldownExpiresAt).toISOString()}`
+    );
 
     return {
       success: false,
@@ -182,7 +217,9 @@ export async function unlockBrowser(
   await saveLockState(state);
 
   const remaining = maxAttempts - state.failedAttemptCount;
-  console.warn(`[BrowserVault] Unlock failed. Attempt ${state.failedAttemptCount}. ${remaining} remaining.`);
+  console.warn(
+    `[BrowserVault] Unlock failed. Attempt ${state.failedAttemptCount}. ${remaining} remaining.`
+  );
 
   return {
     success: false,

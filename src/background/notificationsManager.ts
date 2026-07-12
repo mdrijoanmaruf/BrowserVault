@@ -1,11 +1,6 @@
-
 const ICON_URL = '/icons/icon128.png';
 
-export type NotificationId =
-  | 'bv-idle-warning'
-  | 'bv-locked'
-  | 'bv-cooldown';
-
+export type NotificationId = 'bv-idle-warning' | 'bv-locked' | 'bv-cooldown';
 
 export function showNotification(
   id: NotificationId,
@@ -22,5 +17,7 @@ export function showNotification(
 }
 
 export function clearNotification(id: NotificationId): void {
-  chrome.notifications.clear(id, () => { /* no-op */ });
+  chrome.notifications.clear(id, () => {
+    /* no-op */
+  });
 }

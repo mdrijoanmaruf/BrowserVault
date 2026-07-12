@@ -1,5 +1,3 @@
-
-
 import { storage } from './storage';
 import { STORAGE_KEYS } from './constants';
 import type { AuthState } from '@/types';
@@ -23,7 +21,6 @@ function base64ToBuffer(base64: string): ArrayBuffer {
   return bytes.buffer;
 }
 
-
 export async function isBiometricsSupported(): Promise<boolean> {
   if (!window.PublicKeyCredential) return false;
   try {
@@ -33,11 +30,17 @@ export async function isBiometricsSupported(): Promise<boolean> {
   }
 }
 
-export async function registerBiometrics(): Promise<{ success: boolean; error?: string }> {
+export async function registerBiometrics(): Promise<{
+  success: boolean;
+  error?: string;
+}> {
   try {
     const supported = await isBiometricsSupported();
     if (!supported) {
-      return { success: false, error: 'Biometrics are not supported on this device/browser.' };
+      return {
+        success: false,
+        error: 'Biometrics are not supported on this device/browser.',
+      };
     }
 
     const challenge = new Uint8Array(32);
@@ -86,16 +89,23 @@ export async function registerBiometrics(): Promise<{ success: boolean; error?: 
     }
 
     return { success: true };
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Biometric registration error:', error);
-    return { success: false, error: error.message || 'Unknown error occurred.' };
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown error occurred.',
+    };
   }
 }
 
-
-export async function verifyBiometrics(): Promise<{ success: boolean; error?: string }> {
+export async function verifyBiometrics(): Promise<{
+  success: boolean;
+  error?: string;
+}> {
   try {
-    const credentialIdBase64 = await storage.getItem<string>('vault_webauthn_credential_id');
+    const credentialIdBase64 = await storage.getItem<string>(
+      'vault_webauthn_credential_id'
+    );
     if (!credentialIdBase64) {
       return { success: false, error: 'No biometrics registered.' };
     }
@@ -124,12 +134,14 @@ export async function verifyBiometrics(): Promise<{ success: boolean; error?: st
     }
 
     return { success: true };
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Biometric verification error:', error);
-    return { success: false, error: error.message || 'Unknown error occurred.' };
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown error occurred.',
+    };
   }
 }
-
 
 export async function disableBiometrics(): Promise<void> {
   await storage.removeItem('vault_webauthn_credential_id');

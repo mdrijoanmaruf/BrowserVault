@@ -38,10 +38,10 @@ export const STORAGE_KEYS = {
   ACTIVITY_LOG: 'vault_activity_log',
 };
 
+export const WORKER_ENDPOINT =
+  'https://browser-vault-backend.vercel.app/send-otp';
 
-export const WORKER_ENDPOINT = 'https://browser-vault-backend.vercel.app/send-otp';
-
-
-export const WORKER_SHARED_SECRET = '4f9e2d83b9c4a8f5d7e1c6a2b0f9d8c7e6a5b4c3d2e1f0a9b8c7d6e5f4a3b2c';
+export const WORKER_SHARED_SECRET =
+  '4f9e2d83b9c4a8f5d7e1c6a2b0f9d8c7e6a5b4c3d2e1f0a9b8c7d6e5f4a3b2c';
 
 export const OTP_EXPIRY_MINUTES = 10;

@@ -6,12 +6,15 @@ export function ChangePasswordPage() {
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
-  
+
   const [showCurrent, setShowCurrent] = useState(false);
   const [showNew, setShowNew] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
 
-  const [status, setStatus] = useState<{ type: 'error' | 'success'; msg: string } | null>(null);
+  const [status, setStatus] = useState<{
+    type: 'error' | 'success';
+    msg: string;
+  } | null>(null);
   const [isLoading, setIsLoading] = useState(false);
 
   async function handleSubmit(e: React.FormEvent) {
@@ -20,9 +23,12 @@ export function ChangePasswordPage() {
       setStatus({ type: 'error', msg: 'Please fill all fields.' });
       return;
     }
-    
+
     if (newPassword.length < 6) {
-      setStatus({ type: 'error', msg: 'Password must be at least 6 characters.' });
+      setStatus({
+        type: 'error',
+        msg: 'Password must be at least 6 characters.',
+      });
       return;
     }
 
@@ -36,14 +42,18 @@ export function ChangePasswordPage() {
 
     try {
       // 1. Verify current password via UNLOCK_BROWSER
-      const unlockResp = await chrome.runtime.sendMessage({
+      const unlockResp = (await chrome.runtime.sendMessage({
         action: 'UNLOCK_BROWSER',
         payload: { password: currentPassword },
-      }) as { data?: { success?: boolean; cooldownActive?: boolean } } | undefined;
+      })) as
+        { data?: { success?: boolean; cooldownActive?: boolean } } | undefined;
 
       if (!unlockResp?.data?.success) {
         if (unlockResp?.data?.cooldownActive) {
-          setStatus({ type: 'error', msg: 'Too many attempts. Cooldown active.' });
+          setStatus({
+            type: 'error',
+            msg: 'Too many attempts. Cooldown active.',
+          });
         } else {
           setStatus({ type: 'error', msg: 'Incorrect current password.' });
         }
@@ -52,17 +62,17 @@ export function ChangePasswordPage() {
       }
 
       // 2. Set new password
-      const setResp = await chrome.runtime.sendMessage({
+      const setResp = (await chrome.runtime.sendMessage({
         action: 'SET_PASSWORD',
         payload: { password: newPassword },
-      }) as { data?: { success?: boolean } } | undefined;
+      })) as { data?: { success?: boolean } } | undefined;
 
       if (setResp?.data?.success) {
         setStatus({ type: 'success', msg: 'Password changed successfully.' });
         setCurrentPassword('');
         setNewPassword('');
         setConfirmPassword('');
-        
+
         await logActivity('PASSWORD_CHANGE');
       } else {
         setStatus({ type: 'error', msg: 'Failed to change password.' });
@@ -77,19 +87,26 @@ export function ChangePasswordPage() {
   return (
     <div className="bg-white dark:bg-white/[0.03] border border-slate-200 dark:border-white/[0.07] rounded-3xl overflow-hidden shadow-sm transition-colors duration-200 w-full">
       <div className="px-8 py-6 border-b border-slate-100 dark:border-white/[0.06] transition-colors duration-200">
-        <h2 className="text-[17px] font-bold text-slate-900 dark:text-white">Change Vault Password</h2>
-        <p className="text-[13px] text-slate-500 dark:text-white/40 mt-1 font-medium">Update the password used to unlock your browser.</p>
+        <h2 className="text-[17px] font-bold text-slate-900 dark:text-white">
+          Change Vault Password
+        </h2>
+        <p className="text-[13px] text-slate-500 dark:text-white/40 mt-1 font-medium">
+          Update the password used to unlock your browser.
+        </p>
       </div>
-      
+
       <form onSubmit={handleSubmit} className="p-8 space-y-6">
         <div>
-          <label className="block text-[14px] font-semibold text-slate-900 dark:text-white/90 mb-2" htmlFor="current-pwd">
+          <label
+            className="block text-[14px] font-semibold text-slate-900 dark:text-white/90 mb-2"
+            htmlFor="current-pwd"
+          >
             Current Password
           </label>
           <div className="relative">
             <input
               id="current-pwd"
-              type={showCurrent ? "text" : "password"}
+              type={showCurrent ? 'text' : 'password'}
               value={currentPassword}
               onChange={(e) => setCurrentPassword(e.target.value)}
               placeholder="Enter current password"
@@ -106,13 +123,16 @@ export function ChangePasswordPage() {
         </div>
 
         <div>
-          <label className="block text-[14px] font-semibold text-slate-900 dark:text-white/90 mb-2" htmlFor="new-pwd">
+          <label
+            className="block text-[14px] font-semibold text-slate-900 dark:text-white/90 mb-2"
+            htmlFor="new-pwd"
+          >
             New Password
           </label>
           <div className="relative">
             <input
               id="new-pwd"
-              type={showNew ? "text" : "password"}
+              type={showNew ? 'text' : 'password'}
               value={newPassword}
               onChange={(e) => setNewPassword(e.target.value)}
               placeholder="Enter new password (min 6 chars)"
@@ -129,13 +149,16 @@ export function ChangePasswordPage() {
         </div>
 
         <div>
-          <label className="block text-[14px] font-semibold text-slate-900 dark:text-white/90 mb-2" htmlFor="confirm-pwd">
+          <label
+            className="block text-[14px] font-semibold text-slate-900 dark:text-white/90 mb-2"
+            htmlFor="confirm-pwd"
+          >
             Confirm New Password
           </label>
           <div className="relative">
             <input
               id="confirm-pwd"
-              type={showConfirm ? "text" : "password"}
+              type={showConfirm ? 'text' : 'password'}
               value={confirmPassword}
               onChange={(e) => setConfirmPassword(e.target.value)}
               placeholder="Confirm new password"
@@ -152,7 +175,9 @@ export function ChangePasswordPage() {
         </div>
 
         {status && (
-          <div className={`p-4 rounded-xl text-[14px] font-semibold ${status.type === 'error' ? 'bg-red-50 dark:bg-red-500/10 border border-red-200 dark:border-red-500/20 text-red-700 dark:text-red-400' : 'bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-200 dark:border-emerald-500/20 text-emerald-700 dark:text-emerald-400'}`}>
+          <div
+            className={`p-4 rounded-xl text-[14px] font-semibold ${status.type === 'error' ? 'bg-red-50 dark:bg-red-500/10 border border-red-200 dark:border-red-500/20 text-red-700 dark:text-red-400' : 'bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-200 dark:border-emerald-500/20 text-emerald-700 dark:text-emerald-400'}`}
+          >
             {status.msg}
           </div>
         )}

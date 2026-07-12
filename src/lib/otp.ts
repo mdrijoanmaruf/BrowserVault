@@ -1,4 +1,3 @@
-
 export function generateOtp(): string {
   const array = new Uint32Array(1);
   crypto.getRandomValues(array);
@@ -13,10 +12,13 @@ export function generateOtp(): string {
  * @param timestampMs The time the OTP was generated (in milliseconds)
  * @param maxAgeMinutes The maximum allowed age of the OTP in minutes
  */
-export function isOtpExpired(timestampMs: number, maxAgeMinutes: number): boolean {
+export function isOtpExpired(
+  timestampMs: number,
+  maxAgeMinutes: number
+): boolean {
   const now = Date.now();
   const maxAgeMs = maxAgeMinutes * 60 * 1000;
-  return (now - timestampMs) > maxAgeMs;
+  return now - timestampMs > maxAgeMs;
 }
 
 /**

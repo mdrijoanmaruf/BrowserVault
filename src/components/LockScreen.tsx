@@ -2030,6 +2030,37 @@ export function LockScreen({ onHide }: LockScreenProps) {
             )}
           </div>
         </div>
+
+        {/* Developer Credit Footer */}
+        <div
+          style={{
+            position: 'absolute',
+            bottom: 24,
+            left: 0,
+            right: 0,
+            textAlign: 'center',
+            fontSize: 13,
+            color: c.textSubtle,
+            fontWeight: 500,
+          }}
+        >
+          Developed by{' '}
+          <a
+            href="https://rijoan.com"
+            target="_blank"
+            rel="noopener noreferrer"
+            style={{
+              color: '#5a8bf7',
+              textDecoration: 'none',
+              fontWeight: 600,
+              transition: 'opacity 0.2s',
+            }}
+            onMouseOver={(e) => (e.currentTarget.style.opacity = '0.8')}
+            onMouseOut={(e) => (e.currentTarget.style.opacity = '1')}
+          >
+            Md Rijoan Maruf
+          </a>
+        </div>
       </div>
     </>
   );

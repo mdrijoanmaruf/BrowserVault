@@ -105,22 +105,6 @@ export function LockButton({ isLocked, isLoading, onClick }: LockButtonProps) {
           </span>
         </div>
       </div>
-
-      {/* Right Arrow Button */}
-      <div className="w-[42px] h-[42px] flex-shrink-0 flex items-center justify-center rounded-full bg-[#5a8bf7] mr-0.5 group-hover:bg-[#4c7de3] group-hover:scale-105 transition-all duration-300 shadow-md shadow-[#5a8bf7]/30">
-        <svg
-          width="20"
-          height="20"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="white"
-          strokeWidth="3.5"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        >
-          <path d="m9 18 6-6-6-6" />
-        </svg>
-      </div>
     </button>
   );
 }

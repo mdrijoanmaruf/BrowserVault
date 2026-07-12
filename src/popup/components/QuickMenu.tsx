@@ -9,10 +9,10 @@ export function QuickMenu() {
         id="bv-settings-btn"
         type="button"
         onClick={openSettings}
-        className="w-full flex items-center justify-between px-4 py-3.5 rounded-2xl bg-slate-50 hover:bg-slate-100 border border-slate-200 transition-colors focus:outline-none"
+        className="group w-full flex items-center justify-between px-4 py-3.5 rounded-[20px] bg-white border-2 border-[#eaf0fa] shadow-sm hover:border-[#5a8bf7] hover:shadow-[0_8px_24px_-4px_rgba(90,139,247,0.2)] hover:bg-[#f8faff] transition-all duration-300 focus:outline-none relative overflow-hidden"
       >
         <div className="flex items-center gap-3">
-          <div className="text-slate-700">
+          <div className="text-slate-500 group-hover:text-[#5a8bf7] transition-colors duration-300 bg-slate-100 group-hover:bg-[#ebf0ff] p-2 rounded-full">
             <svg
               width="20"
               height="20"
@@ -45,7 +45,7 @@ export function QuickMenu() {
           strokeWidth="2"
           strokeLinecap="round"
           strokeLinejoin="round"
-          className="text-slate-400"
+          className="text-slate-300 group-hover:text-[#5a8bf7] group-hover:translate-x-1 transition-all duration-300"
         >
           <path d="M9 18l6-6-6-6"></path>
         </svg>

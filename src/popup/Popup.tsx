@@ -109,6 +109,7 @@ export function Popup() {
         failedAttemptCount: 0,
       };
       setLockState(newLock);
+      setTimeout(() => window.close(), 100);
     } catch {
       setLockError('Failed to lock. Please try again.');
     } finally {

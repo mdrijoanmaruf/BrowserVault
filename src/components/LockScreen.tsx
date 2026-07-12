@@ -298,6 +298,14 @@ export function LockScreen({ onHide }: LockScreenProps) {
   const [theme, setTheme] = useState<'light' | 'dark'>('dark');
   const [biometricsEnabled, setBiometricsEnabled] = useState(false);
 
+  // ── Forgot password wizard state ─────────────────────────────────────────
+  const [forgotStep, setForgotStep] = useState<1 | 2 | 3>(1);
+  const [otpInput, setOtpInput] = useState('');
+  const [maskedEmail, setMaskedEmail] = useState('');
+  const [resendCooldown, setResendCooldown] = useState(0); // seconds remaining
+  const [noRecoveryEmail, setNoRecoveryEmail] = useState(false);
+  const resendTimerRef = React.useRef<ReturnType<typeof setInterval> | null>(null);
+
   // Load initial state directly from storage (no SW needed)
   useEffect(() => {
     (async () => {
@@ -386,6 +394,43 @@ export function LockScreen({ onHide }: LockScreenProps) {
 
   const clearError = useCallback(() => setError(''), []);
 
+  // ── Forgot password helpers ──────────────────────────────────────────────
+  function maskEmail(email: string): string {
+    const [local, domain] = email.split('@');
+    if (!local || !domain) return '**@' + (domain || '?');
+    return local.slice(0, 2) + '**@' + domain;
+  }
+
+  function startResendCooldown(seconds: number) {
+    setResendCooldown(seconds);
+    if (resendTimerRef.current) clearInterval(resendTimerRef.current);
+    resendTimerRef.current = setInterval(() => {
+      setResendCooldown((prev) => {
+        if (prev <= 1) {
+          clearInterval(resendTimerRef.current!);
+          resendTimerRef.current = null;
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+  }
+
+  function resetForgotState() {
+    setForgotStep(1);
+    setOtpInput('');
+    setMaskedEmail('');
+    setResendCooldown(0);
+    setNoRecoveryEmail(false);
+    setPassword('');
+    setConfirmPassword('');
+    clearError();
+    if (resendTimerRef.current) {
+      clearInterval(resendTimerRef.current);
+      resendTimerRef.current = null;
+    }
+  }
+
   const handleBiometricUnlock = useCallback(async () => {
     setIsLoading(true);
     setError('');
@@ -410,6 +455,59 @@ export function LockScreen({ onHide }: LockScreenProps) {
       setIsLoading(false);
     }
   }, [onHide, triggerShake]);
+
+  // ── Forgot password handlers ─────────────────────────────────────────────
+  const handleSendForgotOtp = useCallback(async () => {
+    setIsLoading(true);
+    clearError();
+    try {
+      const raw = await chrome.runtime.sendMessage({ action: 'REQUEST_OTP' }) as
+        | { success?: boolean; data?: { success?: boolean; email?: string; error?: string; retryAfterSec?: number }; error?: string }
+        | undefined;
+      // Message router wraps as { success, data: <handler result> }
+      const resp = (raw as any)?.data ?? raw;
+      if (resp?.success && resp.email) {
+        setMaskedEmail(maskEmail(resp.email));
+        setForgotStep(2);
+        startResendCooldown(30);
+      } else {
+        const msg = resp?.error || 'Failed to send OTP.';
+        if (msg.includes('No email') || msg.includes('recovery email')) {
+          setNoRecoveryEmail(true);
+        }
+        // If server sent a cooldown time, apply it so Resend is disabled
+        if (resp?.retryAfterSec) startResendCooldown(resp.retryAfterSec);
+        setError(msg);
+      }
+    } catch {
+      setError('Could not contact the OTP service. Is the backend running?');
+    } finally {
+      setIsLoading(false);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [clearError]);
+
+  const handleVerifyForgotOtp = useCallback(async () => {
+    if (otpInput.length !== 6) { setError('Please enter the 6-digit code.'); return; }
+    setIsLoading(true);
+    clearError();
+    try {
+      const resp = await chrome.runtime.sendMessage({
+        action: 'VERIFY_OTP',
+        payload: { otp: otpInput, purpose: 'forgot' },
+      }) as { success: boolean; error?: string };
+      if (resp?.success) {
+        setForgotStep(3);
+      } else {
+        setError(resp?.error || 'Invalid or expired code.');
+        triggerShake();
+      }
+    } catch {
+      setError('Verification error. Please try again.');
+    } finally {
+      setIsLoading(false);
+    }
+  }, [otpInput, clearError, triggerShake]);
 
   const handleUnlock = useCallback(async () => {
     if (!password.trim()) {
@@ -536,7 +634,7 @@ export function LockScreen({ onHide }: LockScreenProps) {
     }
   }, [password, confirmPassword, onHide, triggerShake]);
 
-  // "Forgot Password" → directly reset password (no email/OTP needed)
+  // "Forgot Password" → reset password after OTP verification (Step 3)
   const handleResetPassword = useCallback(async () => {
     if (!password) { setError('Please enter a new password.'); triggerShake(); return; }
     if (checkPasswordStrength(password) === 'weak') { setError('Password too weak — at least 8 chars with mixed types.'); triggerShake(); return; }
@@ -549,6 +647,7 @@ export function LockScreen({ onHide }: LockScreenProps) {
       const salt = generateSalt();
       const hash = await hashPassword(password, salt);
 
+      // Update password and unlock
       await directStorageSet({
         vault_password_hash: hash,
         vault_password_salt: salt,
@@ -579,7 +678,9 @@ export function LockScreen({ onHide }: LockScreenProps) {
 
   const modeSubtitle =
     mode === 'setup' ? 'Create a password to secure your browser'
-    : mode === 'forgot' ? 'How to recover your account'
+    : mode === 'forgot' && forgotStep === 1 ? 'Verify your identity to reset your password'
+    : mode === 'forgot' && forgotStep === 2 ? 'Enter the code sent to your email'
+    : mode === 'forgot' && forgotStep === 3 ? 'Create a new master password'
     : mode === 'cooldown' ? 'Please wait before trying again'
     : 'Your browser is locked';
 
@@ -835,7 +936,7 @@ export function LockScreen({ onHide }: LockScreenProps) {
 
                     <button
                       type="button"
-                      onClick={() => { setMode('forgot'); clearError(); }}
+                      onClick={() => { resetForgotState(); setMode('forgot'); }}
                       style={{
                         background: 'transparent', border: 'none', cursor: 'pointer',
                         color: '#5a8bf7', fontSize: 13, fontWeight: 500,
@@ -854,68 +955,259 @@ export function LockScreen({ onHide }: LockScreenProps) {
               </>
             )}
 
-            {/* ── Forgot mode (Reset Password) ── */}
+            {/* ── Forgot mode (3-step OTP wizard) ── */}
             {mode === 'forgot' && (
-              <form onSubmit={(e) => { e.preventDefault(); handleResetPassword(); }}>
-                <p style={{ color: c.textSubtle, fontSize: 13, margin: '0 0 16px', lineHeight: 1.5 }}>
-                  Set a new password. (Email OTP is currently disabled).
-                </p>
-                <PasswordField
-                  id="bv-new-password"
-                  value={password}
-                  onChange={(v) => { setPassword(v); clearError(); }}
-                  onKeyEnter={handleResetPassword}
-                  placeholder="New password (min. 8 characters)"
-                  showPassword={showPassword}
-                  onToggleShow={() => setShowPassword((v) => !v)}
-                  autoFocus
-                  styleVars={{ '--input-bg': c.inputBg, '--input-border': c.inputBorder, '--text-main': c.textMain }}
-                />
-                <PasswordStrengthMeter password={password} isLight={isLight} />
-                <PasswordField
-                  id="bv-confirm-new-password"
-                  value={confirmPassword}
-                  onChange={(v) => { setConfirmPassword(v); clearError(); }}
-                  onKeyEnter={handleResetPassword}
-                  placeholder="Confirm new password"
-                  showPassword={showPassword}
-                  onToggleShow={() => setShowPassword((v) => !v)}
-                  styleVars={{ '--input-bg': c.inputBg, '--input-border': c.inputBorder, '--text-main': c.textMain }}
-                />
-                
-                {error && (
-                  <div style={{
-                    background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.22)',
-                    borderRadius: 10, padding: '9px 13px', marginBottom: 12, textAlign: 'left',
-                  }}>
-                    <p style={{ color: '#fca5a5', fontSize: 12, margin: 0 }}>{error}</p>
+              <div>
+
+                {/* Step indicator dots */}
+                <div style={{ display: 'flex', justifyContent: 'center', gap: 6, marginBottom: 24 }}>
+                  {[1, 2, 3].map((step) => (
+                    <div key={step} style={{
+                      width: forgotStep === step ? 20 : 6,
+                      height: 6, borderRadius: 3,
+                      background: forgotStep >= step
+                        ? 'linear-gradient(90deg, #5a8bf7, #865df5)'
+                        : 'rgba(15,23,42,0.1)',
+                      transition: 'all 0.3s ease',
+                    }} />
+                  ))}
+                </div>
+
+                {/* ── Step 1: Send OTP ── */}
+                {forgotStep === 1 && (
+                  <div>
+                    <div style={{
+                      background: 'linear-gradient(135deg, #eff4ff 0%, #ede9fe 100%)',
+                      border: '1px solid #c7d7ff',
+                      borderRadius: 12, padding: '14px 16px', marginBottom: 20,
+                      display: 'flex', alignItems: 'flex-start', gap: 10,
+                    }}>
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#5a8bf7" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ marginTop: 1, flexShrink: 0 }}>
+                        <rect x="2" y="4" width="20" height="16" rx="2"/>
+                        <path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/>
+                      </svg>
+                      <p style={{ color: '#3730a3', fontSize: 13, margin: 0, lineHeight: 1.5 }}>
+                        {noRecoveryEmail
+                          ? 'No recovery email is configured. Please set one in Dashboard → Settings → Change Email, or use a backup code to unlock.'
+                          : "We'll send a 6-digit recovery code to your registered recovery email."}
+                      </p>
+                    </div>
+
+                    {error && (
+                      <div style={{
+                        background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.2)',
+                        borderRadius: 10, padding: '9px 13px', marginBottom: 14,
+                      }}>
+                        <p style={{ color: '#ef4444', fontSize: 12, margin: 0 }}>{error}</p>
+                      </div>
+                    )}
+
+                    {!noRecoveryEmail && (
+                      <button
+                        id="bv-send-otp-btn"
+                        type="button"
+                        onClick={handleSendForgotOtp}
+                        disabled={isLoading}
+                        style={{
+                          width: '100%', padding: '13px', borderRadius: 12, border: 'none',
+                          background: isLoading ? 'rgba(90,139,247,0.5)' : 'linear-gradient(90deg, #5a8bf7 0%, #865df5 100%)',
+                          color: 'white', fontSize: 14, fontWeight: 600,
+                          cursor: isLoading ? 'not-allowed' : 'pointer',
+                          boxShadow: '0 4px 16px rgba(90,139,247,0.35)',
+                          display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+                          transition: 'all 0.2s', marginBottom: 12,
+                        }}
+                      >
+                        {isLoading ? (
+                          <><svg className="bv-spin" width="15" height="15" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="rgba(255,255,255,0.25)" strokeWidth="3"/><path d="M12 2a10 10 0 0110 10" stroke="white" strokeWidth="3" strokeLinecap="round"/></svg>Sending…</>
+                        ) : (
+                          <><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></svg>Send Recovery Code</>
+                        )}
+                      </button>
+                    )}
                   </div>
                 )}
-                
+
+                {/* ── Step 2: Enter OTP ── */}
+                {forgotStep === 2 && (
+                  <div>
+                    <div style={{
+                      background: 'linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%)',
+                      border: '1px solid #86efac', borderRadius: 12,
+                      padding: '12px 16px', marginBottom: 20,
+                      display: 'flex', alignItems: 'center', gap: 8,
+                    }}>
+                      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#16a34a" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
+                        <polyline points="20 6 9 17 4 12"/>
+                      </svg>
+                      <p style={{ color: '#15803d', fontSize: 12, margin: 0, lineHeight: 1.5 }}>
+                        Code sent to <strong>{maskedEmail}</strong>. Check your inbox.
+                      </p>
+                    </div>
+
+                    {/* OTP input */}
+                    <div style={{ marginBottom: 16 }}>
+                      <label style={{ display: 'block', fontSize: 12, color: c.textMuted, fontWeight: 500, marginBottom: 6 }}>
+                        Enter 6-digit code
+                      </label>
+                      <input
+                        id="bv-otp-input"
+                        type="text"
+                        inputMode="numeric"
+                        maxLength={6}
+                        value={otpInput}
+                        onChange={(e) => { setOtpInput(e.target.value.replace(/\D/g, '')); clearError(); }}
+                        onKeyDown={(e) => { if (e.key === 'Enter' && otpInput.length === 6) handleVerifyForgotOtp(); }}
+                        placeholder="000000"
+                        style={{
+                          width: '100%', boxSizing: 'border-box',
+                          background: c.inputBg, border: `1px solid ${c.inputBorder}`,
+                          borderRadius: 12, padding: '14px 16px',
+                          fontSize: 28, fontWeight: 700, letterSpacing: 12,
+                          textAlign: 'center', color: c.textMain,
+                          fontFamily: 'monospace', outline: 'none',
+                          transition: 'border-color 0.2s',
+                        }}
+                        autoFocus
+                      />
+                    </div>
+
+                    {error && (
+                      <div style={{
+                        background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.2)',
+                        borderRadius: 10, padding: '9px 13px', marginBottom: 14,
+                      }}>
+                        <p style={{ color: '#ef4444', fontSize: 12, margin: 0 }}>{error}</p>
+                      </div>
+                    )}
+
+                    <button
+                      id="bv-verify-otp-btn"
+                      type="button"
+                      onClick={handleVerifyForgotOtp}
+                      disabled={otpInput.length !== 6 || isLoading}
+                      style={{
+                        width: '100%', padding: '13px', borderRadius: 12, border: 'none',
+                        background: otpInput.length === 6 && !isLoading
+                          ? 'linear-gradient(90deg, #5a8bf7 0%, #865df5 100%)'
+                          : 'rgba(90,139,247,0.35)',
+                        color: 'white', fontSize: 14, fontWeight: 600,
+                        cursor: otpInput.length === 6 && !isLoading ? 'pointer' : 'not-allowed',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+                        transition: 'all 0.2s', marginBottom: 10,
+                      }}
+                    >
+                      {isLoading ? (
+                        <><svg className="bv-spin" width="15" height="15" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="rgba(255,255,255,0.25)" strokeWidth="3"/><path d="M12 2a10 10 0 0110 10" stroke="white" strokeWidth="3" strokeLinecap="round"/></svg>Verifying…</>
+                      ) : 'Verify Code'}
+                    </button>
+
+                    {/* Resend link */}
+                    <div style={{ textAlign: 'center' }}>
+                      <button
+                        id="bv-resend-otp-btn"
+                        type="button"
+                        onClick={() => { setOtpInput(''); clearError(); handleSendForgotOtp(); }}
+                        disabled={resendCooldown > 0 || isLoading}
+                        style={{
+                          background: 'transparent', border: 'none',
+                          color: resendCooldown > 0 ? c.textSubtle : '#5a8bf7',
+                          fontSize: 12, fontWeight: 500, cursor: resendCooldown > 0 ? 'default' : 'pointer',
+                          padding: '4px 0', transition: 'color 0.2s',
+                        }}
+                      >
+                        {resendCooldown > 0 ? `Resend code in ${resendCooldown}s` : 'Resend code'}
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {/* ── Step 3: Set New Password ── */}
+                {forgotStep === 3 && (
+                  <form onSubmit={(e) => { e.preventDefault(); handleResetPassword(); }}>
+                    <div style={{
+                      background: 'linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%)',
+                      border: '1px solid #86efac', borderRadius: 12,
+                      padding: '11px 14px', marginBottom: 20,
+                      display: 'flex', alignItems: 'center', gap: 8,
+                    }}>
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#16a34a" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
+                        <polyline points="20 6 9 17 4 12"/>
+                      </svg>
+                      <p style={{ color: '#15803d', fontSize: 12, margin: 0 }}>
+                        Identity verified! Set your new master password.
+                      </p>
+                    </div>
+
+                    <PasswordField
+                      id="bv-new-password"
+                      value={password}
+                      onChange={(v) => { setPassword(v); clearError(); }}
+                      onKeyEnter={handleResetPassword}
+                      placeholder="New password (min. 8 characters)"
+                      showPassword={showPassword}
+                      onToggleShow={() => setShowPassword((v) => !v)}
+                      autoFocus
+                      styleVars={{ '--input-bg': c.inputBg, '--input-border': c.inputBorder, '--text-main': c.textMain, '--icon-color': c.iconColor }}
+                    />
+                    <PasswordStrengthMeter password={password} isLight={isLight} />
+                    <PasswordField
+                      id="bv-confirm-new-password"
+                      value={confirmPassword}
+                      onChange={(v) => { setConfirmPassword(v); clearError(); }}
+                      onKeyEnter={handleResetPassword}
+                      placeholder="Confirm new password"
+                      showPassword={showPassword}
+                      onToggleShow={() => setShowPassword((v) => !v)}
+                      styleVars={{ '--input-bg': c.inputBg, '--input-border': c.inputBorder, '--text-main': c.textMain, '--icon-color': c.iconColor }}
+                    />
+
+                    {error && (
+                      <div style={{
+                        background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.2)',
+                        borderRadius: 10, padding: '9px 13px', marginBottom: 12,
+                      }}>
+                        <p style={{ color: '#ef4444', fontSize: 12, margin: 0 }}>{error}</p>
+                      </div>
+                    )}
+
+                    <button
+                      id="bv-reset-password-btn"
+                      type="submit"
+                      disabled={isLoading}
+                      style={{
+                        width: '100%', padding: '13px', borderRadius: 12, border: 'none',
+                        background: isLoading ? 'rgba(109,40,217,0.5)' : 'linear-gradient(135deg, #7c3aed 0%, #5b21b6 100%)',
+                        color: 'white', fontSize: 14, fontWeight: 600,
+                        cursor: isLoading ? 'not-allowed' : 'pointer',
+                        boxShadow: '0 4px 18px rgba(109,40,217,0.4)',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+                        transition: 'all 0.2s', marginBottom: 12,
+                      }}
+                    >
+                      {isLoading ? (
+                        <><svg className="bv-spin" width="15" height="15" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="rgba(255,255,255,0.25)" strokeWidth="3"/><path d="M12 2a10 10 0 0110 10" stroke="white" strokeWidth="3" strokeLinecap="round"/></svg>Saving…</>
+                      ) : 'Set New Password'}
+                    </button>
+                  </form>
+                )}
+
+                {/* Back button (all steps) */}
                 <button
-                  type="submit"
-                  disabled={isLoading}
-                  style={{
-                    width: '100%', padding: '13px', borderRadius: 12, border: 'none',
-                    background: isLoading ? 'rgba(109,40,217,0.5)' : 'linear-gradient(135deg, #7c3aed 0%, #5b21b6 100%)',
-                    color: 'white', fontSize: 14, fontWeight: 600, cursor: isLoading ? 'not-allowed' : 'pointer',
-                    boxShadow: '0 4px 18px rgba(109,40,217,0.4)', transition: 'all 0.2s', marginBottom: 12,
-                  }}
-                >
-                  {isLoading ? 'Resetting...' : 'Set New Password'}
-                </button>
-                <button type="button" className="bv-btn-secondary"
-                  onClick={() => setMode('unlock')}
+                  id="bv-back-to-unlock-btn"
+                  type="button"
+                  onClick={() => { resetForgotState(); setMode('unlock'); }}
                   style={{
                     width: '100%', padding: '12px', borderRadius: 12,
-                    background: 'transparent', border: `1px solid ${c.inputBorder}`,
-                    color: c.textSubtle, fontSize: 14, cursor: 'pointer',
-                    fontWeight: 500, transition: 'all 0.2s',
+                    background: 'transparent',
+                    border: `1px solid ${c.inputBorder}`,
+                    color: c.textSubtle, fontSize: 13, cursor: 'pointer',
+                    fontWeight: 500, transition: 'all 0.2s', marginTop: 4,
                   }}
                 >
                   ← Back to Unlock
                 </button>
-              </form>
+              </div>
             )}
           </div>
         </div>

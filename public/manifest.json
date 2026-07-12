@@ -15,6 +15,10 @@
     "history",
     "declarativeNetRequest"
   ],
+  "host_permissions": [
+    "https://browser-vault-backend.vercel.app/*",
+    "https://*.workers.dev/*"
+  ],
   "commands": {
     "_execute_action": {
       "suggested_key": {

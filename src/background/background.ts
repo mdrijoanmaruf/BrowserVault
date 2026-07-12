@@ -10,8 +10,9 @@ import { MessageRouter } from './messageRouter';
 import { lockBrowser, unlockBrowser, getLockStatus } from './lockController';
 import { startIdleWatcher, stopIdleWatcher } from './idleWatcher';
 import { storage } from '@/lib/storage';
-import { STORAGE_KEYS, DEFAULT_USER_SETTINGS, DEFAULT_AUTH_STATE, DEFAULT_LOCK_STATE } from '@/lib/constants';
+import { STORAGE_KEYS, DEFAULT_USER_SETTINGS, DEFAULT_AUTH_STATE, DEFAULT_LOCK_STATE, WORKER_ENDPOINT, WORKER_SHARED_SECRET, OTP_EXPIRY_MINUTES } from '@/lib/constants';
 import { generateSalt, hashPassword, generateBackupCodes } from '@/lib/crypto';
+import { generateOtp } from '@/lib/otp';
 import { getActivityLog, pruneActivityLog, logActivity } from '@/lib/activityLog';
 import type { UserSettings, AuthState, LockState } from '@/types';
 
@@ -241,69 +242,80 @@ router.on('REQUEST_OTP', async (payload: { email?: string }) => {
   const authState = await storage.getItem<AuthState>(STORAGE_KEYS.AUTH_STATE);
   const targetEmail = payload?.email || authState?.recoveryEmail;
   if (!targetEmail) {
-    return { success: false, error: 'No email provided or configured.' };
+    return { success: false, error: 'No email provided or configured. Please set a recovery email in Settings first.' };
   }
 
-  // Generate 6-digit OTP
-  const otp = Math.floor(100000 + Math.random() * 900000).toString();
+  // Generate cryptographically secure 6-digit OTP using the dedicated utility
+  const otp = generateOtp();
   const salt = generateSalt();
   const hash = await hashPassword(otp, salt);
-  
+
+  // Store hashed OTP + expiry (never store plain OTP)
   await storage.setItem('vault_otp_hash', hash);
   await storage.setItem('vault_otp_salt', salt);
-  await storage.setItem('vault_otp_expires', Date.now() + 10 * 60 * 1000); // 10 minutes
+  await storage.setItem('vault_otp_expires', Date.now() + OTP_EXPIRY_MINUTES * 60 * 1000);
 
   try {
-    const res = await fetch('https://browservault-otp-service.your-domain.workers.dev/send-otp', {
+    const res = await fetch(WORKER_ENDPOINT, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': 'Bearer change-me' // Replace with actual shared secret
+        'Authorization': `Bearer ${WORKER_SHARED_SECRET}`,
       },
-      body: JSON.stringify({ email: targetEmail, otp })
+      body: JSON.stringify({ email: targetEmail, otp }),
     });
 
     if (!res.ok) {
-      console.error('Failed to dispatch OTP', await res.text());
-      return { success: false, error: 'Failed to dispatch OTP.' };
+      let errorMsg = 'Failed to send OTP email. Please try again.';
+      let retryAfterSec: number | undefined;
+      try {
+        const errJson = await res.json() as { error?: string; retryAfterSec?: number };
+        if (errJson.error) errorMsg = errJson.error;
+        if (errJson.retryAfterSec) retryAfterSec = errJson.retryAfterSec;
+      } catch { /* ignore parse errors */ }
+      console.error('[BrowserVault] OTP dispatch failed:', res.status, errorMsg);
+      return { success: false, error: errorMsg, retryAfterSec };
     }
 
+    console.log(`[BrowserVault] OTP dispatched to ${targetEmail}`);
     return { success: true, email: targetEmail };
   } catch (err) {
-    console.error('Error requesting OTP:', err);
-    return { success: false, error: 'Network error while requesting OTP.' };
+    console.error('[BrowserVault] Network error requesting OTP:', err);
+    return { success: false, error: 'Network error. Make sure the OTP service is running.' };
   }
 });
 
 /**
- * Verifies an OTP. By default, it unlocks the browser.
- * If payload.purpose === 'verify', it only returns success/fail without unlocking.
+ * Verifies an OTP.
+ * - purpose === 'unlock' (default): unlocks the browser on success
+ * - purpose === 'verify':  used by ChangeEmailPage — only returns success/fail, no unlock
+ * - purpose === 'forgot':  used by forgot-password flow — only returns success/fail, no unlock
+ *   (the LockScreen then advances to Step 3: set new password)
  */
-router.on('VERIFY_OTP', async (payload: { otp?: string; purpose?: 'unlock' | 'verify' }) => {
+router.on('VERIFY_OTP', async (payload: { otp?: string; purpose?: 'unlock' | 'verify' | 'forgot' }) => {
   const otp = payload?.otp;
   if (!otp) return { success: false, error: 'No OTP provided' };
 
   const expiresAt = await storage.getItem<number>('vault_otp_expires');
   if (!expiresAt || Date.now() > expiresAt) {
-    return { success: false, error: 'OTP expired.' };
+    return { success: false, error: 'OTP has expired. Please request a new code.' };
   }
 
   const storedHash = await storage.getItem<string>('vault_otp_hash');
   const storedSalt = await storage.getItem<string>('vault_otp_salt');
   if (!storedHash || !storedSalt) {
-    return { success: false, error: 'No OTP requested.' };
+    return { success: false, error: 'No OTP has been requested.' };
   }
 
-  // Use the crypto utility verifyPassword which just hashes the input and checks it against the stored hash
   const isValid = await hashPassword(otp, storedSalt).then(h => h === storedHash);
   if (isValid) {
-    // Clear OTP
+    // Clear OTP from storage after successful verification
     await storage.removeItem('vault_otp_hash');
     await storage.removeItem('vault_otp_salt');
     await storage.removeItem('vault_otp_expires');
 
-    if (payload.purpose !== 'verify') {
-      // Unlock browser
+    // Only auto-unlock if purpose is 'unlock' (not 'verify' or 'forgot')
+    if (payload.purpose !== 'verify' && payload.purpose !== 'forgot') {
       const state = (await storage.getItem<LockState>(STORAGE_KEYS.LOCK_STATE)) ?? { ...DEFAULT_LOCK_STATE };
       state.isLocked = false;
       state.failedAttemptCount = 0;
@@ -323,7 +335,7 @@ router.on('VERIFY_OTP', async (payload: { otp?: string; purpose?: 'unlock' | 've
     return { success: true };
   }
 
-  return { success: false, error: 'Invalid OTP.' };
+  return { success: false, error: 'Invalid OTP code. Please check and try again.' };
 });
 
 /**

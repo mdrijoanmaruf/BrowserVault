@@ -35,7 +35,18 @@ export function QuickMenu() {
         </svg>
       </button>
 
-      <div className="flex justify-end pr-2 pt-1">
+      <div className="flex justify-between items-center px-1 pt-2">
+        <span className="text-slate-400 text-[11px]">
+          Developed by{' '}
+          <a
+            href="https://rijoan.com"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-slate-500 hover:text-blue-500 transition-colors font-medium hover:underline"
+          >
+            Md Rijoan Maruf
+          </a>
+        </span>
         <span className="text-slate-400 text-[11px] font-medium tracking-wide">v1.0.0</span>
       </div>
     </>

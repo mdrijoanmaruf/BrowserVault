@@ -1,19 +1,4 @@
-/**
- * Lock Controller — Days 6 + 12 + 13
- *
- * Core functions for locking/unlocking the browser.
- * Persists LockState to chrome.storage.local and broadcasts
- * overlay messages to all open tabs.
- *
- * Day 12 additions:
- *  - unlockBrowser() accepts maxAttempts from settings
- *  - Returns remainingAttempts in UnlockResult
- *
- * Day 13 additions:
- *  - When failedAttemptCount reaches maxAttempts, sets cooldownExpiresAt
- *  - unlockBrowser() checks for active cooldown before verifying password
- *  - Logs FAILED_ATTEMPT and LOCK events to the activity log
- */
+
 
 import { storage } from '@/lib/storage';
 import { verifyPassword } from '@/lib/crypto';
@@ -21,12 +6,8 @@ import { STORAGE_KEYS, DEFAULT_LOCK_STATE } from '@/lib/constants';
 import { logActivity } from '@/lib/activityLog';
 import type { LockState } from '@/types';
 
-/** Default cooldown duration when max attempts are exhausted (5 minutes) */
 const DEFAULT_COOLDOWN_MS = 5 * 60 * 1000;
 
-// ─────────────────────────────────────────────────────────────
-// Internal helpers
-// ─────────────────────────────────────────────────────────────
 
 async function getLockState(): Promise<LockState> {
   const state = await storage.getItem<LockState>(STORAGE_KEYS.LOCK_STATE);
@@ -37,10 +18,7 @@ async function saveLockState(state: LockState): Promise<void> {
   await storage.setItem<LockState>(STORAGE_KEYS.LOCK_STATE, state);
 }
 
-/**
- * Broadcasts a message to every non-chrome:// tab.
- * Failures on individual tabs are silently swallowed.
- */
+
 async function broadcastToAllTabs(message: Record<string, unknown>): Promise<void> {
   const tabs = await chrome.tabs.query({});
   const sends = tabs
@@ -52,10 +30,6 @@ async function broadcastToAllTabs(message: Record<string, unknown>): Promise<voi
     );
   await Promise.allSettled(sends);
 }
-
-// ─────────────────────────────────────────────────────────────
-// Public types
-// ─────────────────────────────────────────────────────────────
 
 export interface UnlockResult {
   success: boolean;
@@ -71,17 +45,7 @@ export interface UnlockResult {
   error?: string;
 }
 
-// ─────────────────────────────────────────────────────────────
-// Public API
-// ─────────────────────────────────────────────────────────────
 
-/**
- * Locks the browser:
- * 1. Persists isLocked = true
- * 2. Redirects all open tabs to lock.html with redirect param
- * 3. Broadcasts SHOW_LOCK_OVERLAY to all tabs as backup
- * 4. Logs LOCK event to the activity log
- */
 export async function lockBrowser(): Promise<void> {
   const state = await getLockState();
   state.isLocked = true;
@@ -108,18 +72,6 @@ export async function lockBrowser(): Promise<void> {
   await broadcastToAllTabs({ action: 'SHOW_LOCK_OVERLAY' });
 }
 
-/**
- * Attempts to unlock the browser:
- * 1. Rejects immediately if a cooldown is still active
- * 2. Verifies the password
- * 3. On success → resets state, closes modal, restores windows, logs UNLOCK
- * 4. On failure → increments failedAttemptCount
- *    - If count reaches maxAttempts → sets cooldownExpiresAt, logs LOCKOUT
- *
- * @param password    Plain-text password from the user
- * @param maxAttempts Maximum allowed wrong attempts before cooldown (from settings)
- * @param cooldownMs  Cooldown duration in ms (defaults to 5 minutes)
- */
 export async function unlockBrowser(
   password: string,
   maxAttempts: number = 5,
@@ -223,9 +175,6 @@ export async function unlockBrowser(
   };
 }
 
-/**
- * Returns the current persisted lock state.
- */
 export async function getLockStatus(): Promise<LockState> {
   return getLockState();
 }

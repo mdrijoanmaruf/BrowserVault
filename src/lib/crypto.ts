@@ -1,14 +1,7 @@
-/**
- * Cryptography utilities using the Web Crypto API
- */
 
-// We use an iterations count that is standard for PBKDF2 with SHA-256
 const ITERATIONS = 100_000;
 const HASH_BYTES = 32;
 
-/**
- * Helper to convert an ArrayBuffer to a Base64 string
- */
 function bufferToBase64(buffer: ArrayBuffer): string {
   const bytes = new Uint8Array(buffer);
   let binary = '';
@@ -18,9 +11,7 @@ function bufferToBase64(buffer: ArrayBuffer): string {
   return btoa(binary);
 }
 
-/**
- * Helper to convert a Base64 string to an ArrayBuffer
- */
+
 function base64ToBuffer(base64: string): ArrayBuffer {
   const binary = atob(base64);
   const bytes = new Uint8Array(binary.length);
@@ -30,18 +21,13 @@ function base64ToBuffer(base64: string): ArrayBuffer {
   return bytes.buffer;
 }
 
-/**
- * Generates a cryptographically secure random salt (16 bytes), returned as a Base64 string.
- */
+
 export function generateSalt(): string {
   const array = new Uint8Array(16);
   crypto.getRandomValues(array);
   return bufferToBase64(array.buffer);
 }
 
-/**
- * Derives a key from a password and salt using PBKDF2 with SHA-256.
- */
 async function deriveKey(password: string, salt: ArrayBuffer): Promise<ArrayBuffer> {
   const enc = new TextEncoder();
   const keyMaterial = await crypto.subtle.importKey(
@@ -64,20 +50,14 @@ async function deriveKey(password: string, salt: ArrayBuffer): Promise<ArrayBuff
   );
 }
 
-/**
- * Hashes a password using PBKDF2 + SHA-256.
- * Returns the hash as a Base64 string.
- */
+
 export async function hashPassword(password: string, saltBase64: string): Promise<string> {
   const salt = base64ToBuffer(saltBase64);
   const hashBuffer = await deriveKey(password, salt);
   return bufferToBase64(hashBuffer);
 }
 
-/**
- * Verifies an input password against a stored hash and salt.
- * Uses a constant-time comparison to mitigate timing attacks.
- */
+
 export async function verifyPassword(
   input: string,
   storedHashBase64: string,
@@ -102,9 +82,7 @@ export async function verifyPassword(
   return isMatch === 0;
 }
 
-/**
- * Evaluates the strength of a password based on length and character variety.
- */
+
 export function checkPasswordStrength(password: string): 'weak' | 'medium' | 'strong' {
   if (password.length < 8) return 'weak';
 
@@ -120,9 +98,7 @@ export function checkPasswordStrength(password: string): 'weak' | 'medium' | 'st
   return 'strong';
 }
 
-/**
- * Generates 8 random secure backup codes, formatted as XXXX-XXXX.
- */
+
 export function generateBackupCodes(count: number = 8): string[] {
   const codes: string[] = [];
   const array = new Uint8Array(4); // 4 bytes = 8 hex chars

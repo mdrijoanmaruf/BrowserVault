@@ -1,10 +1,3 @@
-/**
- * Lock Page Entry — src/lock/index.tsx
- *
- * Renders the LockScreen as a full-page app.
- * Opened when: a new tab is created while the browser is locked.
- * On unlock: redirects to the previous URL or chrome://newtab.
- */
 
 import { createRoot } from 'react-dom/client';
 import { StrictMode } from 'react';

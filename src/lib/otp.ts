@@ -1,10 +1,4 @@
-/**
- * One-Time Password (OTP) utilities
- */
 
-/**
- * Generates a cryptographically secure 6-digit OTP string.
- */
 export function generateOtp(): string {
   const array = new Uint32Array(1);
   crypto.getRandomValues(array);

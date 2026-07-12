@@ -55,6 +55,7 @@ export function Popup() {
   // Setup-password form state
   const [password, setPassword] = useState('');
   const [confirm, setConfirm] = useState('');
+  const [email, setEmail] = useState('');
   const [setupError, setSetupError] = useState('');
   const [saving, setSaving] = useState(false);
   const [showPw, setShowPw] = useState(false);
@@ -76,12 +77,16 @@ export function Popup() {
   // ── Set Password (all in popup, no SW) ──────────────────────
   const handleSetPassword = async () => {
     setSetupError('');
-    if (password.length < 8) {
-      setSetupError('Password must be at least 8 characters.');
+    if (password.length < 6) {
+      setSetupError('Password must be at least 6 characters.');
       return;
     }
     if (password !== confirm) {
       setSetupError('Passwords do not match.');
+      return;
+    }
+    if (!email) {
+      setSetupError('Recovery email is required.');
       return;
     }
     setSaving(true);
@@ -91,6 +96,7 @@ export function Popup() {
 
       await storageSet('vault_password_hash', hash);
       await storageSet('vault_password_salt', salt);
+      await storageSet('vault_recovery_email', email);
 
       const newAuth: AuthState = { ...DEFAULT_AUTH_STATE, hasPassword: true };
       await storageSet(STORAGE_KEYS.AUTH_STATE, newAuth);
@@ -204,7 +210,7 @@ export function Popup() {
                 value={password}
                 onChange={(e) => { setPassword(e.target.value); setSetupError(''); }}
                 onKeyDown={(e) => e.key === 'Enter' && handleSetPassword()}
-                placeholder="New password (min. 8 characters)"
+                placeholder="New password (min. 6 characters)"
                 className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-sm text-slate-900 placeholder:text-slate-400 outline-none focus:border-violet-400 transition-colors pr-10"
               />
               <button
@@ -220,13 +226,22 @@ export function Popup() {
               </button>
             </div>
 
-            {/* Confirm input */}
             <input
               type={showPw ? 'text' : 'password'}
               value={confirm}
               onChange={(e) => { setConfirm(e.target.value); setSetupError(''); }}
               onKeyDown={(e) => e.key === 'Enter' && handleSetPassword()}
               placeholder="Confirm password"
+              className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-sm text-slate-900 placeholder:text-slate-400 outline-none focus:border-violet-400 transition-colors"
+            />
+
+            {/* Email input */}
+            <input
+              type="email"
+              value={email}
+              onChange={(e) => { setEmail(e.target.value); setSetupError(''); }}
+              onKeyDown={(e) => e.key === 'Enter' && handleSetPassword()}
+              placeholder="Recovery email"
               className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-sm text-slate-900 placeholder:text-slate-400 outline-none focus:border-violet-400 transition-colors"
             />
 

@@ -1,26 +1,6 @@
-/**
- * LockScreen — Days 8 + 12 + 13
- *
- * Full-screen overlay rendered inside a Shadow DOM. Uses inline styles.
- *
- * Day 12: Shows "X attempts remaining" below the password field.
- * Day 13: When cooldown is active, hides the input and shows a live
- *         countdown timer until the cooldown expires.
- *
- * Modes:
- *  - "unlock"   → password input + attempts remaining
- *  - "setup"    → first-time password creation
- *  - "forgot"   → recovery instructions placeholder
- *  - "cooldown" → locked-out countdown screen
- */
-
 import React, { useState, useEffect, useCallback } from 'react';
 import { checkPasswordStrength } from '@/lib/crypto';
 import { verifyBiometrics } from '@/lib/webauthn';
-
-// ─────────────────────────────────────────────────────────────
-// Types
-// ─────────────────────────────────────────────────────────────
 
 type LockMode = 'setup' | 'unlock' | 'cooldown' | 'backup-codes' | 'forgot' | 'otp-verify';
 
@@ -35,9 +15,6 @@ interface LockScreenProps {
   onHide?: () => void;
 }
 
-// ─────────────────────────────────────────────────────────────
-// Styles
-// ─────────────────────────────────────────────────────────────
 
 const KEYFRAMES = `
   @keyframes bvFadeIn {
@@ -92,9 +69,6 @@ const KEYFRAMES = `
   .bv-eye:hover  { color: rgba(255,255,255,0.7) !important; }
 `;
 
-// ─────────────────────────────────────────────────────────────
-// Utility
-// ─────────────────────────────────────────────────────────────
 
 function formatSeconds(ms: number): string {
   const totalSec = Math.max(0, Math.ceil(ms / 1000));
@@ -103,9 +77,6 @@ function formatSeconds(ms: number): string {
   return `${m}:${s.toString().padStart(2, '0')}`;
 }
 
-// ─────────────────────────────────────────────────────────────
-// Sub-components
-// ─────────────────────────────────────────────────────────────
 
 function EyeOffIcon() {
   return (
@@ -272,14 +243,11 @@ function CooldownRing({ remainingMs, totalMs }: { remainingMs: number; totalMs: 
   );
 }
 
-// ─────────────────────────────────────────────────────────────
-// Main component
-// ─────────────────────────────────────────────────────────────
-
 export function LockScreen({ onHide }: LockScreenProps) {
   const [mode, setMode] = useState<LockMode>('unlock');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [recoveryEmail, setRecoveryEmail] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -394,7 +362,6 @@ export function LockScreen({ onHide }: LockScreenProps) {
 
   const clearError = useCallback(() => setError(''), []);
 
-  // ── Forgot password helpers ──────────────────────────────────────────────
   function maskEmail(email: string): string {
     const [local, domain] = email.split('@');
     if (!local || !domain) return '**@' + (domain || '?');
@@ -456,7 +423,6 @@ export function LockScreen({ onHide }: LockScreenProps) {
     }
   }, [onHide, triggerShake]);
 
-  // ── Forgot password handlers ─────────────────────────────────────────────
   const handleSendForgotOtp = useCallback(async () => {
     setIsLoading(true);
     clearError();
@@ -603,8 +569,9 @@ export function LockScreen({ onHide }: LockScreenProps) {
 
   const handleSetup = useCallback(async () => {
     if (!password) { setError('Please enter a password.'); triggerShake(); return; }
-    if (checkPasswordStrength(password) === 'weak') { setError('Please choose a stronger password (at least 8 chars, mix of types).'); triggerShake(); return; }
+    if (password.length < 6) { setError('Password must be at least 6 characters.'); triggerShake(); return; }
     if (password !== confirmPassword) { setError('Passwords do not match.'); triggerShake(); return; }
+    if (!recoveryEmail) { setError('Please enter a recovery email.'); triggerShake(); return; }
 
     setIsLoading(true);
     setError('');
@@ -618,6 +585,7 @@ export function LockScreen({ onHide }: LockScreenProps) {
       await directStorageSet({
         vault_password_hash: hash,
         vault_password_salt: salt,
+        vault_recovery_email: recoveryEmail,
         vault_auth_state: { hasPassword: true, hasPin: false, emailVerified: false, hasBackupCodes: false, hasBiometrics: false },
         vault_lock_state: { isLocked: false, failedAttemptCount: 0, cooldownExpiresAt: null },
       });
@@ -637,7 +605,7 @@ export function LockScreen({ onHide }: LockScreenProps) {
   // "Forgot Password" → reset password after OTP verification (Step 3)
   const handleResetPassword = useCallback(async () => {
     if (!password) { setError('Please enter a new password.'); triggerShake(); return; }
-    if (checkPasswordStrength(password) === 'weak') { setError('Password too weak — at least 8 chars with mixed types.'); triggerShake(); return; }
+    if (password.length < 6) { setError('Password must be at least 6 characters.'); triggerShake(); return; }
     if (password !== confirmPassword) { setError('Passwords do not match.'); triggerShake(); return; }
 
     setIsLoading(true);
@@ -815,7 +783,7 @@ export function LockScreen({ onHide }: LockScreenProps) {
                   value={password}
                   onChange={(v) => { setPassword(v); clearError(); }}
                   onKeyEnter={submitHandler}
-                  placeholder={mode === 'setup' ? 'New password (min. 8 characters)' : 'Enter your password'}
+                  placeholder={mode === 'setup' ? 'New password (min. 6 characters)' : 'Enter your password'}
                   showPassword={showPassword}
                   onToggleShow={() => setShowPassword((v) => !v)}
                   autoFocus
@@ -824,7 +792,6 @@ export function LockScreen({ onHide }: LockScreenProps) {
 
                 {mode === 'setup' && (
                   <>
-                    <PasswordStrengthMeter password={password} isLight={isLight} />
                     <PasswordField
                       id="bv-confirm-password"
                       value={confirmPassword}
@@ -835,6 +802,31 @@ export function LockScreen({ onHide }: LockScreenProps) {
                       onToggleShow={() => setShowPassword((v) => !v)}
                       styleVars={{ '--input-bg': c.inputBg, '--input-border': c.inputBorder, '--text-main': c.textMain }}
                     />
+                    <div style={{ marginBottom: 16 }}>
+                      <div style={{
+                        display: 'flex', alignItems: 'center',
+                        background: c.inputBg,
+                        border: `1px solid ${c.inputBorder}`,
+                        borderRadius: 12, padding: '0 16px', height: 48,
+                        color: c.textMain,
+                      }}>
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ color: c.iconColor, marginRight: 12 }}>
+                          <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path>
+                          <polyline points="22,6 12,13 2,6"></polyline>
+                        </svg>
+                        <input
+                          type="email"
+                          value={recoveryEmail}
+                          onChange={(e) => { setRecoveryEmail(e.target.value); clearError(); }}
+                          onKeyDown={(e) => { if (e.key === 'Enter') submitHandler(); }}
+                          placeholder="Recovery email"
+                          style={{
+                            background: 'transparent', border: 'none', outline: 'none',
+                            width: '100%', color: 'inherit', fontSize: 14,
+                          }}
+                        />
+                      </div>
+                    </div>
                   </>
                 )}
 

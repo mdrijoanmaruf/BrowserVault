@@ -1,9 +1,3 @@
-/**
- * AppContext — Day 19
- *
- * Provides theme context to the app and automatically toggles the `.dark`
- * class on the HTML element based on UserSettings.
- */
 
 import { createContext, useContext, useEffect } from 'react';
 import type { ReactNode } from 'react';

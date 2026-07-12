@@ -1,9 +1,4 @@
-/**
- * Sidebar — Day 15
- *
- * Left navigation panel for the Settings Dashboard.
- * Items: Settings, Change Password, Change Email, Advanced, Activity Log
- */
+
 
 export type DashboardPage =
   | 'settings'

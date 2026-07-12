@@ -1,9 +1,4 @@
-/**
- * useSettings — Direct storage version
- *
- * Reads and writes UserSettings directly from chrome.storage.local.
- * Zero dependency on the background service worker.
- */
+
 
 import { useState, useEffect, useCallback } from 'react';
 import type { UserSettings } from '@/types';
@@ -57,7 +52,6 @@ export function useSettings(): UseSettingsReturn {
     try {
       // Write directly to storage — no SW needed
       await storageSet<UserSettings>(STORAGE_KEYS.SETTINGS, next);
-      // Also notify SW to restart idle watcher if it happens to be alive (best-effort)
       chrome.runtime.sendMessage({ action: 'UPDATE_SETTINGS', payload: patch }, () => {
         void chrome.runtime.lastError; // consume error silently
       });

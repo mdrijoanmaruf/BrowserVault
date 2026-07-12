@@ -1,9 +1,4 @@
-/**
- * QuickMenu — icon row in the popup footer
- *
- * Opens the Settings dashboard in a new tab (placeholder: index.html)
- * and shows version/help info.
- */
+
 
 export function QuickMenu() {
   const openSettings = () => {

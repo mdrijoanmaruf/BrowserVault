@@ -1,10 +1,4 @@
-/**
- * Service Worker Entry Point — background/index.ts
- *
- * Initialises the message router, lock state, and idle watcher on startup.
- * Routes: GET_STATE, LOCK_BROWSER, UNLOCK_BROWSER, SET_PASSWORD,
- *         UPDATE_SETTINGS, GET_ACTIVITY_LOG
- */
+
 
 import { MessageRouter } from './messageRouter';
 import { lockBrowser, unlockBrowser, getLockStatus } from './lockController';
@@ -16,17 +10,9 @@ import { generateOtp } from '@/lib/otp';
 import { getActivityLog, pruneActivityLog, logActivity } from '@/lib/activityLog';
 import type { UserSettings, AuthState, LockState } from '@/types';
 
-// ─────────────────────────────────────────────────────────────
-// Bootstrap
-// ─────────────────────────────────────────────────────────────
 
 const router = new MessageRouter();
 
-// ─────────────────────────────────────────────────────────────
-// Service Worker Keepalive (MV3 workaround)
-// MV3 service workers are killed after ~30s of inactivity.
-// We use a repeating alarm to keep it alive and handle port connections.
-// ─────────────────────────────────────────────────────────────
 
 chrome.alarms.create('bv-keepalive', { periodInMinutes: 0.4 }); // every ~24s
 chrome.alarms.onAlarm.addListener((alarm) => {
@@ -83,11 +69,6 @@ async function initializeState(): Promise<void> {
   await pruneActivityLog(settings.logRetentionDays);
 }
 
-// ─────────────────────────────────────────────────────────────
-// Message Routes
-// ─────────────────────────────────────────────────────────────
-
-/** Returns LockState, AuthState, maxAttempts setting, and full settings */
 router.on('GET_STATE', async () => {
   const lockState = await getLockStatus();
   const authState =
@@ -100,17 +81,12 @@ router.on('GET_STATE', async () => {
   return { lockState, authState, maxAttempts: settings.maxAttempts, settings };
 });
 
-/** Locks the browser and broadcasts the overlay to all tabs */
 router.on('LOCK_BROWSER', async () => {
   await lockBrowser();
   return { success: true };
 });
 
-/**
- * Unlocks the browser after verifying the provided password.
- * Enforces maxAttempts limit and cooldown from settings.
- * Payload: { password: string }
- */
+
 router.on('UNLOCK_BROWSER', async (payload: { password?: string }) => {
   const password = payload?.password ?? '';
   const settings =
@@ -120,10 +96,7 @@ router.on('UNLOCK_BROWSER', async (payload: { password?: string }) => {
   return await unlockBrowser(password, settings.maxAttempts);
 });
 
-/**
- * Stores a new password. If it is the first time, generates backup codes.
- * Payload: { password: string }
- */
+
 router.on('SET_PASSWORD', async (payload: { password?: string }) => {
   const password = payload?.password;
   if (!password) {
@@ -162,10 +135,7 @@ router.on('SET_PASSWORD', async (payload: { password?: string }) => {
   return { success: true, backupCodes };
 });
 
-/**
- * Stores a new PIN.
- * Payload: { pin: string }
- */
+
 router.on('SET_PIN', async (payload: { pin?: string }) => {
   const pin = payload?.pin;
   if (!pin) {
@@ -189,10 +159,7 @@ router.on('SET_PIN', async (payload: { pin?: string }) => {
   return { success: true };
 });
 
-/**
- * Persists updated settings and restarts the idle watcher.
- * Payload: Partial<UserSettings>
- */
+
 router.on('UPDATE_SETTINGS', async (payload: Partial<UserSettings>) => {
   const current =
     (await storage.getItem<UserSettings>(STORAGE_KEYS.SETTINGS)) ??
@@ -207,9 +174,7 @@ router.on('UPDATE_SETTINGS', async (payload: Partial<UserSettings>) => {
   return { success: true, settings: updated };
 });
 
-/**
- * Resets all extension data, removes password, and restores default settings.
- */
+
 router.on('FACTORY_RESET', async () => {
   console.log('[BrowserVault] Executing FACTORY_RESET');
   try {
@@ -233,11 +198,7 @@ router.on('FACTORY_RESET', async () => {
   }
 });
 
-/**
- * Requests an OTP to be sent to an email.
- * If payload.email is provided, sends to that email (for verification).
- * Otherwise sends to the stored recoveryEmail (for password reset).
- */
+
 router.on('REQUEST_OTP', async (payload: { email?: string }) => {
   const authState = await storage.getItem<AuthState>(STORAGE_KEYS.AUTH_STATE);
   const targetEmail = payload?.email || authState?.recoveryEmail;
@@ -285,13 +246,7 @@ router.on('REQUEST_OTP', async (payload: { email?: string }) => {
   }
 });
 
-/**
- * Verifies an OTP.
- * - purpose === 'unlock' (default): unlocks the browser on success
- * - purpose === 'verify':  used by ChangeEmailPage — only returns success/fail, no unlock
- * - purpose === 'forgot':  used by forgot-password flow — only returns success/fail, no unlock
- *   (the LockScreen then advances to Step 3: set new password)
- */
+
 router.on('VERIFY_OTP', async (payload: { otp?: string; purpose?: 'unlock' | 'verify' | 'forgot' }) => {
   const otp = payload?.otp;
   if (!otp) return { success: false, error: 'No OTP provided' };
@@ -338,10 +293,7 @@ router.on('VERIFY_OTP', async (payload: { otp?: string; purpose?: 'unlock' | 've
   return { success: false, error: 'Invalid OTP code. Please check and try again.' };
 });
 
-/**
- * Unlocks the browser directly if local biometrics verified successfully.
- * The WebAuthn verification happens in the UI/Content script where navigator.credentials is available.
- */
+
 router.on('UNLOCK_WITH_BIOMETRICS', async () => {
   const state = (await storage.getItem<LockState>(STORAGE_KEYS.LOCK_STATE)) ?? { ...DEFAULT_LOCK_STATE };
   state.isLocked = false;
@@ -366,16 +318,11 @@ router.on('GET_ACTIVITY_LOG', async () => {
   return await getActivityLog();
 });
 
-// ─────────────────────────────────────────────────────────────
-// Start
-// ─────────────────────────────────────────────────────────────
+
 
 router.listen();
 initializeState();
 
-// ─────────────────────────────────────────────────────────────
-// Browser Startup Lock Enforcement
-// ─────────────────────────────────────────────────────────────
 
 /** Returns true if the browser is currently locked */
 async function isCurrentlyLocked(): Promise<boolean> {
@@ -391,9 +338,7 @@ chrome.runtime.onStartup.addListener(async () => {
 
 const LOCK_PAGE_URL = chrome.runtime.getURL('lock.html');
 
-/**
- * Intercept new window creation. Enforce lock on its tabs.
- */
+
 chrome.windows.onCreated.addListener(async (window) => {
   if (!(await isCurrentlyLocked())) return;
 
@@ -416,10 +361,6 @@ chrome.windows.onCreated.addListener(async (window) => {
   }, 100);
 });
 
-/**
- * Intercept new tab creation while locked:
- * Redirect the new tab to the lock page immediately.
- */
 chrome.tabs.onCreated.addListener(async (tab) => {
   if (!tab.id) return;
   if (!(await isCurrentlyLocked())) return;
@@ -432,9 +373,6 @@ chrome.tabs.onCreated.addListener(async (tab) => {
   chrome.tabs.update(tab.id, { url: redirectUrl }).catch(() => {});
 });
 
-/**
- * Intercept navigation while locked.
- */
 chrome.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
   if (changeInfo.status !== 'loading') return;
   const url = changeInfo.url ?? tab.url ?? '';
@@ -449,9 +387,7 @@ chrome.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
   chrome.tabs.update(tabId, { url: redirectUrl }).catch(() => {});
 });
 
-/**
- * Intercept window close to lock the browser when the last window is closed.
- */
+
 chrome.windows.onRemoved.addListener(async () => {
   try {
     const windows = await chrome.windows.getAll({ windowTypes: ['normal', 'popup'] });

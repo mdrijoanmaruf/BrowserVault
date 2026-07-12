@@ -1,9 +1,4 @@
-/**
- * LockButton — primary action button for the popup
- *
- * When unlocked: shows "Lock Browser Now"
- * When locked:   shows a disabled/locked state message
- */
+
 
 interface LockButtonProps {
   isLocked: boolean;

@@ -1,12 +1,3 @@
-/**
- * Content Script Entry — src/content/index.ts
- *
- * Runs on every page (document_idle). On load it reads isLocked DIRECTLY
- * from chrome.storage.local — no dependency on the SW being alive.
- *
- * Also listens for SHOW_LOCK_OVERLAY / HIDE_LOCK_OVERLAY messages from
- * the background service worker for real-time lock/unlock broadcasts.
- */
 
 import { showOverlay, hideOverlay } from './lockOverlay';
 
@@ -16,7 +7,6 @@ interface RuntimeMessage {
 
 const LOCK_STATE_KEY = 'vault_lock_state';
 
-// ── On-load state check (reads storage directly, SW-independent) ──
 
 (async () => {
   try {
@@ -33,7 +23,6 @@ const LOCK_STATE_KEY = 'vault_lock_state';
   }
 })();
 
-// ── Reactive state changes ────────────────────────────────────────────
 
 chrome.storage.onChanged.addListener((changes, area) => {
   if (area === 'local' && changes[LOCK_STATE_KEY]) {
@@ -46,7 +35,6 @@ chrome.storage.onChanged.addListener((changes, area) => {
   }
 });
 
-// ── Message listener (for real-time SW broadcasts fallback) ───────────
 
 chrome.runtime.onMessage.addListener((message: RuntimeMessage) => {
   if (message?.action === 'SHOW_LOCK_OVERLAY') {

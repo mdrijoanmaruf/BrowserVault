@@ -1,9 +1,4 @@
-/**
- * WebAuthn (Biometrics) utility functions — Phase 8
- * 
- * Provides local device biometric authentication by acting as both the
- * Relying Party and the client.
- */
+
 
 import { storage } from './storage';
 import { STORAGE_KEYS } from './constants';
@@ -28,9 +23,7 @@ function base64ToBuffer(base64: string): ArrayBuffer {
   return bytes.buffer;
 }
 
-/**
- * Checks if the device supports WebAuthn (platform authenticator like TouchID/Windows Hello)
- */
+
 export async function isBiometricsSupported(): Promise<boolean> {
   if (!window.PublicKeyCredential) return false;
   try {
@@ -40,10 +33,6 @@ export async function isBiometricsSupported(): Promise<boolean> {
   }
 }
 
-/**
- * Prompts the user to register their biometrics.
- * Saves the credential ID locally on success.
- */
 export async function registerBiometrics(): Promise<{ success: boolean; error?: string }> {
   try {
     const supported = await isBiometricsSupported();
@@ -103,9 +92,7 @@ export async function registerBiometrics(): Promise<{ success: boolean; error?: 
   }
 }
 
-/**
- * Prompts the user to verify their biometrics.
- */
+
 export async function verifyBiometrics(): Promise<{ success: boolean; error?: string }> {
   try {
     const credentialIdBase64 = await storage.getItem<string>('vault_webauthn_credential_id');
@@ -143,9 +130,7 @@ export async function verifyBiometrics(): Promise<{ success: boolean; error?: st
   }
 }
 
-/**
- * Disables biometrics and removes the credential locally.
- */
+
 export async function disableBiometrics(): Promise<void> {
   await storage.removeItem('vault_webauthn_credential_id');
   const authState = await storage.getItem<AuthState>(STORAGE_KEYS.AUTH_STATE);

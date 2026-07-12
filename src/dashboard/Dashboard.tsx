@@ -1,8 +1,3 @@
-/**
- * Dashboard Router — Day 15
- *
- * State-based router orchestrating the dashboard shell and pages.
- */
 
 import { useState } from 'react';
 import { DashboardLayout } from './DashboardLayout';

@@ -1,8 +1,4 @@
-/**
- * DashboardLayout — Day 15
- *
- * Full-screen shell: sidebar on the left, scrollable main content on the right.
- */
+
 
 import type { ReactNode } from 'react';
 import type { DashboardPage } from './Sidebar';

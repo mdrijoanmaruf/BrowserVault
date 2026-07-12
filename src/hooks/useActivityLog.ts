@@ -1,8 +1,4 @@
-/**
- * useActivityLog — Day 20 (Phase 6)
- *
- * Hook to read the activity log from the service worker.
- */
+
 
 import { useState, useEffect, useCallback } from 'react';
 import type { ActivityLogEntry } from '@/types';

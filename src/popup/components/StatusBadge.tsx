@@ -1,6 +1,4 @@
-/**
- * StatusBadge — shows Locked or Unlocked state with an animated indicator
- */
+
 
 interface StatusBadgeProps {
   isLocked: boolean;

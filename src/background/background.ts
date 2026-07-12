@@ -378,6 +378,17 @@ chrome.runtime.onStartup.addListener(async () => {
 const LOCK_PAGE_URL = chrome.runtime.getURL('lock.html');
 
 chrome.windows.onCreated.addListener(async (window) => {
+  if (window.type === 'normal') {
+    const windows = await chrome.windows.getAll({ windowTypes: ['normal'] });
+    if (windows.length === 1) {
+      const authState = await storage.getItem<AuthState>(STORAGE_KEYS.AUTH_STATE);
+      if (authState?.hasPassword && !(await isCurrentlyLocked())) {
+        console.log('[BrowserVault] First normal window opened. Forcing lock.');
+        await lockBrowser();
+      }
+    }
+  }
+
   if (!(await isCurrentlyLocked())) return;
 
   // Short delay to allow tabs to be populated in the new window
@@ -439,7 +450,7 @@ chrome.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
 chrome.windows.onRemoved.addListener(async () => {
   try {
     const windows = await chrome.windows.getAll({
-      windowTypes: ['normal', 'popup'],
+      windowTypes: ['normal'],
     });
     if (windows.length === 0) {
       console.log('[BrowserVault] Last window closed. Forcing lock.');

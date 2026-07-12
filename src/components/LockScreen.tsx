@@ -145,10 +145,30 @@ export function PasswordField({
 
   React.useEffect(() => {
     if (autoFocus && inputRef.current) {
-      // Small timeout to ensure it works in Shadow DOM or slow renders
-      setTimeout(() => {
-        inputRef.current?.focus();
-      }, 50);
+      const doFocus = () => {
+        if (typeof chrome !== 'undefined' && chrome.windows) {
+          chrome.windows.getCurrent((win) => {
+            if (win && win.id) {
+              chrome.windows.update(win.id, { focused: true }, () => {
+                window.focus();
+                inputRef.current?.focus();
+              });
+            } else {
+              window.focus();
+              inputRef.current?.focus();
+            }
+          });
+        } else {
+          window.focus();
+          inputRef.current?.focus();
+        }
+      };
+      
+      // Try multiple times to grab focus from the URL bar (omnibox)
+      doFocus();
+      setTimeout(doFocus, 100);
+      setTimeout(doFocus, 300);
+      setTimeout(doFocus, 600);
     }
   }, [autoFocus]);
 
@@ -235,9 +255,11 @@ export function PasswordField({
 function CooldownRing({
   remainingMs,
   totalMs,
+  c,
 }: {
   remainingMs: number;
   totalMs: number;
+  c?: any;
 }) {
   const radius = 40;
   const circumference = 2 * Math.PI * radius;
@@ -260,7 +282,7 @@ function CooldownRing({
             cy="48"
             r={radius}
             fill="none"
-            stroke="rgba(255,255,255,0.08)"
+            stroke={c?.inputBorder || "rgba(255,255,255,0.08)"}
             strokeWidth="6"
           />
           <circle
@@ -300,7 +322,7 @@ function CooldownRing({
         >
           <span
             style={{
-              color: 'white',
+              color: c?.textMain || 'white',
               fontSize: 18,
               fontWeight: 600,
               fontVariantNumeric: 'tabular-nums',
@@ -310,7 +332,7 @@ function CooldownRing({
           </span>
           <span
             style={{
-              color: 'rgba(255,255,255,0.35)',
+              color: c?.textMuted || 'rgba(255,255,255,0.35)',
               fontSize: 10,
               marginTop: 1,
             }}
@@ -1045,6 +1067,7 @@ export function LockScreen({ onHide }: LockScreenProps) {
                 <CooldownRing
                   remainingMs={cooldownRemainingMs}
                   totalMs={COOLDOWN_TOTAL_MS}
+                  c={c}
                 />
                 <div
                   style={{
@@ -1064,7 +1087,7 @@ export function LockScreen({ onHide }: LockScreenProps) {
                   >
                     Too many failed attempts. Password entry is temporarily
                     disabled to protect your data. You can try again in{' '}
-                    <strong style={{ color: '#fca5a5' }}>
+                    <strong style={{ color: '#ef4444' }}>
                       {formatSeconds(cooldownRemainingMs)}
                     </strong>
                     .

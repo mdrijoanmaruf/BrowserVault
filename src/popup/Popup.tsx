@@ -14,7 +14,6 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { STORAGE_KEYS, DEFAULT_AUTH_STATE, DEFAULT_LOCK_STATE } from '@/lib/constants';
-import { generateSalt, hashPassword } from '@/lib/crypto';
 import { StatusBadge } from './components/StatusBadge';
 import { LockButton } from './components/LockButton';
 import { QuickMenu } from './components/QuickMenu';
@@ -52,14 +51,6 @@ export function Popup() {
   const [view, setView] = useState<View>('loading');
   const [lockState, setLockState] = useState<LockState>(DEFAULT_LOCK_STATE);
 
-  // Setup-password form state
-  const [password, setPassword] = useState('');
-  const [confirm, setConfirm] = useState('');
-  const [email, setEmail] = useState('');
-  const [setupError, setSetupError] = useState('');
-  const [saving, setSaving] = useState(false);
-  const [showPw, setShowPw] = useState(false);
-
   // Lock/unlock state
   const [isLocking, setIsLocking] = useState(false);
   const [lockError, setLockError] = useState('');
@@ -74,49 +65,7 @@ export function Popup() {
 
   useEffect(() => { loadState(); }, [loadState]);
 
-  // ── Set Password (all in popup, no SW) ──────────────────────
-  const handleSetPassword = async () => {
-    setSetupError('');
-    if (password.length < 6) {
-      setSetupError('Password must be at least 6 characters.');
-      return;
-    }
-    if (password !== confirm) {
-      setSetupError('Passwords do not match.');
-      return;
-    }
-    if (!email) {
-      setSetupError('Recovery email is required.');
-      return;
-    }
-    setSaving(true);
-    try {
-      const salt = generateSalt();
-      const hash = await hashPassword(password, salt);
 
-      await storageSet('vault_password_hash', hash);
-      await storageSet('vault_password_salt', salt);
-      await storageSet('vault_recovery_email', email);
-
-      const newAuth: AuthState = { ...DEFAULT_AUTH_STATE, hasPassword: true };
-      await storageSet(STORAGE_KEYS.AUTH_STATE, newAuth);
-
-      // Also initialise lock state as unlocked
-      const newLock: LockState = { ...DEFAULT_LOCK_STATE, isLocked: false };
-      await storageSet(STORAGE_KEYS.LOCK_STATE, newLock);
-
-      // Notify SW to reload its in-memory state (non-blocking)
-      notifySW('GET_STATE');
-      setLockState(newLock);
-      setView('main');
-      setPassword('');
-      setConfirm('');
-    } catch (err) {
-      setSetupError(err instanceof Error ? err.message : 'Failed to save password.');
-    } finally {
-      setSaving(false);
-    }
-  };
 
   // ── Lock / Unlock — writes storage + broadcasts to all tabs directly ────
   const broadcastToTabs = async (action: string) => {
@@ -136,11 +85,10 @@ export function Popup() {
     setIsLocking(true);
     setLockError('');
     try {
+      notifySW('LOCK_BROWSER');
+      // Update local state directly so UI responds fast
       const newLock: LockState = { ...lockState, isLocked: true, failedAttemptCount: 0 };
-      await storageSet(STORAGE_KEYS.LOCK_STATE, newLock);
       setLockState(newLock);
-      // Broadcast to all open tabs so the overlay appears immediately
-      await broadcastToTabs('SHOW_LOCK_OVERLAY');
     } catch {
       setLockError('Failed to lock. Please try again.');
     } finally {
@@ -197,71 +145,18 @@ export function Popup() {
 
         {/* ── Set Password view ── */}
         {view === 'setup' && (
-          <div className="flex flex-col gap-3">
-            <div className="text-center mb-1">
+          <div className="flex flex-col gap-3 h-full justify-center mt-4">
+            <div className="text-center mb-2">
               <h2 className="text-sm font-bold text-slate-900">Welcome to BrowserVault</h2>
-              <p className="text-[11px] text-slate-500 mt-1">Set a master password to secure your browser.</p>
+              <p className="text-[11px] text-slate-500 mt-1 px-2">Please complete the setup in the new tab to secure your browser.</p>
             </div>
 
-            {/* Password input */}
-            <div className="relative">
-              <input
-                type={showPw ? 'text' : 'password'}
-                value={password}
-                onChange={(e) => { setPassword(e.target.value); setSetupError(''); }}
-                onKeyDown={(e) => e.key === 'Enter' && handleSetPassword()}
-                placeholder="New password (min. 6 characters)"
-                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-sm text-slate-900 placeholder:text-slate-400 outline-none focus:border-violet-400 transition-colors pr-10"
-              />
-              <button
-                type="button"
-                onClick={() => setShowPw(v => !v)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-violet-500 transition-colors"
-              >
-                {showPw ? (
-                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M17.94 17.94A10.07 10.07 0 0112 20c-7 0-11-8-11-8a18.45 18.45 0 015.06-5.94M9.9 4.24A9.12 9.12 0 0112 4c7 0 11 8 11 8a18.5 18.5 0 01-2.16 3.19m-6.72-1.07a3 3 0 11-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
-                ) : (
-                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
-                )}
-              </button>
-            </div>
-
-            <input
-              type={showPw ? 'text' : 'password'}
-              value={confirm}
-              onChange={(e) => { setConfirm(e.target.value); setSetupError(''); }}
-              onKeyDown={(e) => e.key === 'Enter' && handleSetPassword()}
-              placeholder="Confirm password"
-              className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-sm text-slate-900 placeholder:text-slate-400 outline-none focus:border-violet-400 transition-colors"
-            />
-
-            {/* Email input */}
-            <input
-              type="email"
-              value={email}
-              onChange={(e) => { setEmail(e.target.value); setSetupError(''); }}
-              onKeyDown={(e) => e.key === 'Enter' && handleSetPassword()}
-              placeholder="Recovery email"
-              className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-sm text-slate-900 placeholder:text-slate-400 outline-none focus:border-violet-400 transition-colors"
-            />
-
-            {/* Error */}
-            {setupError && (
-              <p className="text-red-500 text-[11px] text-center">{setupError}</p>
-            )}
-
-            {/* Submit */}
             <button
-              onClick={handleSetPassword}
-              disabled={saving || !password || !confirm}
-              className="w-full bg-[#5a8bf7] hover:bg-[#4673d4] disabled:bg-slate-300 disabled:cursor-not-allowed text-white text-sm font-semibold py-3 rounded-xl transition-colors flex items-center justify-center gap-2 mt-2"
+              onClick={() => chrome.tabs.create({ url: chrome.runtime.getURL('setup.html') })}
+              className="w-full bg-[#5a8bf7] hover:bg-[#4673d4] text-white text-sm font-semibold py-3 rounded-xl transition-colors flex items-center justify-center gap-2"
             >
-              {saving ? (
-                <>
-                  <svg className="animate-spin w-4 h-4" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="rgba(255,255,255,0.25)" strokeWidth="3"/><path d="M12 2a10 10 0 0110 10" stroke="white" strokeWidth="3" strokeLinecap="round"/></svg>
-                  Saving…
-                </>
-              ) : 'Set Password & Continue'}
+              Start Setup
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg>
             </button>
           </div>
         )}

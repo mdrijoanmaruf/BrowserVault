@@ -21,6 +21,7 @@ export default defineConfig({
         popup: path.resolve(__dirname, 'popup.html'),
         index: path.resolve(__dirname, 'index.html'),
         lock: path.resolve(__dirname, 'lock.html'),
+        setup: path.resolve(__dirname, 'setup.html'),
       },
     },
   },

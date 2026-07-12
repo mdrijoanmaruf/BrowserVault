@@ -54,7 +54,7 @@
   "web_accessible_resources": [
     {
       "matches": ["<all_urls>"],
-      "resources": ["index.html", "lock.html", "icons/*"]
+      "resources": ["index.html", "lock.html", "setup.html", "icons/*"]
     }
   ]
 }

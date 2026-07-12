@@ -12,6 +12,9 @@ export const DEFAULT_USER_SETTINGS: UserSettings = {
   logRetentionDays: 30,
   autoLockOnSleep: false,
   biometricUnlockEnabled: false,
+  restrictedDomains: [],
+  scheduledLockEnabled: false,
+  scheduledLockTime: '22:00',
 };
 
 export const DEFAULT_LOCK_STATE: LockState = {

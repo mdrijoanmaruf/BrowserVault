@@ -456,7 +456,7 @@ export function LockScreen({ onHide }: LockScreenProps) {
       // Verify password directly from storage — no SW required
       const result = await new Promise<Record<string, any>>((resolve) => {
         chrome.storage.local.get(
-          ['vault_password_hash', 'vault_password_salt', 'vault_pin_hash', 'vault_pin_salt', 'vault_lock_state', 'vault_settings'],
+          ['vault_password_hash', 'vault_password_salt', 'vault_lock_state', 'vault_settings'],
           (r) => resolve(r || {})
         );
       });
@@ -483,15 +483,6 @@ export function LockScreen({ onHide }: LockScreenProps) {
       // Dynamic import of verifyPassword (included in bundle)
       const { verifyPassword } = await import('@/lib/crypto');
       let isValid = await verifyPassword(password, storedHash, storedSalt);
-
-      // Try PIN
-      if (!isValid) {
-        const pinHash = result['vault_pin_hash'] as string | undefined;
-        const pinSalt = result['vault_pin_salt'] as string | undefined;
-        if (pinHash && pinSalt) {
-          isValid = await verifyPassword(password, pinHash, pinSalt);
-        }
-      }
 
       const settings = result['vault_settings'];
       const maxAtt = settings?.maxAttempts ?? maxAttempts;

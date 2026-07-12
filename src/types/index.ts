@@ -11,6 +11,9 @@ export interface UserSettings {
   logRetentionDays: number;
   autoLockOnSleep: boolean;
   biometricUnlockEnabled: boolean;
+  restrictedDomains: string[];
+  scheduledLockEnabled: boolean;
+  scheduledLockTime: string;
 }
 
 export interface AuthState {

@@ -2,9 +2,9 @@
 
 import { storage } from '@/lib/storage';
 import { verifyPassword } from '@/lib/crypto';
-import { STORAGE_KEYS, DEFAULT_LOCK_STATE } from '@/lib/constants';
+import { STORAGE_KEYS, DEFAULT_LOCK_STATE, DEFAULT_USER_SETTINGS } from '@/lib/constants';
 import { logActivity } from '@/lib/activityLog';
-import type { LockState } from '@/types';
+import type { LockState, UserSettings } from '@/types';
 
 const DEFAULT_COOLDOWN_MS = 5 * 60 * 1000;
 
@@ -54,6 +54,16 @@ export async function lockBrowser(): Promise<void> {
   await logActivity('LOCK');
   console.log('[BrowserVault] Browser locked — redirecting tabs');
 
+  const settings = await storage.getItem<UserSettings>(STORAGE_KEYS.SETTINGS) ?? { ...DEFAULT_USER_SETTINGS } as UserSettings;
+  if (settings.clearHistoryOnLock) {
+    try {
+      await chrome.history.deleteAll();
+      console.log('[BrowserVault] History cleared on lock');
+    } catch (e) {
+      console.error('[BrowserVault] Failed to clear history:', e);
+    }
+  }
+
   const LOCK_PAGE_URL = chrome.runtime.getURL('lock.html');
   const tabs = await chrome.tabs.query({});
   for (const tab of tabs) {
@@ -102,16 +112,8 @@ export async function unlockBrowser(
     await saveLockState(state);
   }
 
-  // ── Password / PIN / Backup Codes verification ──────────────────────────────
+  // ── Password / Backup Codes verification ──────────────────────────────
   let isValid = await verifyPassword(password, storedHash, storedSalt);
-
-  if (!isValid) {
-    const pinHash = await storage.getItem<string>('vault_pin_hash');
-    const pinSalt = await storage.getItem<string>('vault_pin_salt');
-    if (pinHash && pinSalt) {
-      isValid = await verifyPassword(password, pinHash, pinSalt);
-    }
-  }
 
   if (!isValid) {
     const backupCodesHashes = await storage.getItem<string[]>('vault_backup_codes');
@@ -139,6 +141,20 @@ export async function unlockBrowser(
     console.log('[BrowserVault] Browser unlocked');
 
     await broadcastToAllTabs({ action: 'HIDE_LOCK_OVERLAY' });
+
+    const currentSettings = await storage.getItem<UserSettings>(STORAGE_KEYS.SETTINGS) ?? { ...DEFAULT_USER_SETTINGS } as UserSettings;
+    if (currentSettings.startState === 'customUrl' && currentSettings.customUrl) {
+      try {
+        const activeTabs = await chrome.tabs.query({ active: true, currentWindow: true });
+        if (activeTabs.length > 0 && activeTabs[0].id) {
+          chrome.tabs.update(activeTabs[0].id, { url: currentSettings.customUrl }).catch(() => {});
+        } else {
+          chrome.tabs.create({ url: currentSettings.customUrl }).catch(() => {});
+        }
+      } catch (e) {
+        console.error('[BrowserVault] Failed to open custom URL:', e);
+      }
+    }
 
     return { success: true };
   }

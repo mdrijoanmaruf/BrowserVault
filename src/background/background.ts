@@ -3,6 +3,8 @@
 import { MessageRouter } from './messageRouter';
 import { lockBrowser, unlockBrowser, getLockStatus } from './lockController';
 import { startIdleWatcher, stopIdleWatcher } from './idleWatcher';
+import { startDomainWatcher } from './domainWatcher';
+import { startScheduledLock, stopScheduledLock, setupSchedulerListener } from './scheduler';
 import { storage } from '@/lib/storage';
 import { STORAGE_KEYS, DEFAULT_USER_SETTINGS, DEFAULT_AUTH_STATE, DEFAULT_LOCK_STATE, WORKER_ENDPOINT, WORKER_SHARED_SECRET, OTP_EXPIRY_MINUTES } from '@/lib/constants';
 import { generateSalt, hashPassword, generateBackupCodes } from '@/lib/crypto';
@@ -66,6 +68,10 @@ async function initializeState(): Promise<void> {
     DEFAULT_USER_SETTINGS;
 
   startIdleWatcher(settings);
+  startDomainWatcher();
+  startScheduledLock(settings);
+  setupSchedulerListener();
+  
   await pruneActivityLog(settings.logRetentionDays);
 }
 
@@ -136,30 +142,6 @@ router.on('SET_PASSWORD', async (payload: { password?: string }) => {
 });
 
 
-router.on('SET_PIN', async (payload: { pin?: string }) => {
-  const pin = payload?.pin;
-  if (!pin) {
-    return { success: false, error: 'No PIN provided' };
-  }
-
-  const salt = generateSalt();
-  const hash = await hashPassword(pin, salt); // We can reuse hashPassword since PBKDF2 is fine for PINs if salted well
-
-  await storage.setItem('vault_pin_hash', hash);
-  await storage.setItem('vault_pin_salt', salt);
-
-  const authState: AuthState =
-    (await storage.getItem<AuthState>(STORAGE_KEYS.AUTH_STATE)) ??
-    { ...DEFAULT_AUTH_STATE };
-  
-  authState.hasPin = true;
-  await storage.setItem<AuthState>(STORAGE_KEYS.AUTH_STATE, authState);
-
-  console.log('[BrowserVault] PIN set successfully');
-  return { success: true };
-});
-
-
 router.on('UPDATE_SETTINGS', async (payload: Partial<UserSettings>) => {
   const current =
     (await storage.getItem<UserSettings>(STORAGE_KEYS.SETTINGS)) ??
@@ -168,7 +150,9 @@ router.on('UPDATE_SETTINGS', async (payload: Partial<UserSettings>) => {
   await storage.setItem<UserSettings>(STORAGE_KEYS.SETTINGS, updated);
 
   stopIdleWatcher();
+  stopScheduledLock();
   startIdleWatcher(updated);
+  startScheduledLock(updated);
 
   console.log('[BrowserVault] Settings updated:', updated);
   return { success: true, settings: updated };
@@ -403,3 +387,10 @@ chrome.windows.onRemoved.addListener(async () => {
   }
 });
 
+
+chrome.commands.onCommand.addListener((command) => {
+  if (command === 'panic-lock') {
+    console.log('[BrowserVault] Panic lock shortcut triggered');
+    lockBrowser();
+  }
+});

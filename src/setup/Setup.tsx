@@ -35,6 +35,15 @@ export function Setup() {
   const [saving, setSaving] = useState(false);
   const [showPw, setShowPw] = useState(false);
   const [isDone, setIsDone] = useState(false);
+  const [resendTimer, setResendTimer] = useState(0);
+
+  // Timer countdown effect
+  useEffect(() => {
+    if (resendTimer > 0) {
+      const timer = setTimeout(() => setResendTimer(t => t - 1), 1000);
+      return () => clearTimeout(timer);
+    }
+  }, [resendTimer]);
 
   // Load persisted setup state
   useEffect(() => {
@@ -69,8 +78,34 @@ export function Setup() {
         await storageSet('vault_setup_step', 3);
         await storageSet('vault_setup_email', email);
         setSetupStep(3);
+        setResendTimer(30);
       } else {
         setSetupError(res?.error || 'Failed to send OTP.');
+        if (res?.retryAfterSec) {
+          setResendTimer(res.retryAfterSec);
+        }
+      }
+    } catch (err) {
+      setSetupError('Error communicating with background service.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleResendOtp = async () => {
+    setSetupError('');
+    setSaving(true);
+    try {
+      const res = await new Promise<any>((resolve) => {
+        chrome.runtime.sendMessage({ action: 'REQUEST_OTP', payload: { email } }, resolve);
+      });
+      if (res?.success) {
+        setResendTimer(30);
+      } else {
+        setSetupError(res?.error || 'Failed to send OTP.');
+        if (res?.retryAfterSec) {
+          setResendTimer(res.retryAfterSec);
+        }
       }
     } catch (err) {
       setSetupError('Error communicating with background service.');
@@ -265,6 +300,16 @@ export function Setup() {
             <button onClick={handleStep3} disabled={saving || otp.length !== 6} className="w-full bg-[#10b981] hover:bg-[#059669] disabled:bg-slate-300 disabled:cursor-not-allowed text-white text-[15px] font-semibold py-3.5 rounded-xl transition-all shadow-sm mt-4 flex items-center justify-center gap-2">
               {saving ? 'Verifying...' : 'Complete Setup'}
             </button>
+
+            <div className="text-center mt-3">
+              <button 
+                onClick={handleResendOtp} 
+                disabled={saving || resendTimer > 0} 
+                className="text-[13px] font-medium text-[#5a8bf7] hover:text-[#4673d4] disabled:text-slate-400 transition-colors bg-transparent border-none cursor-pointer disabled:cursor-default"
+              >
+                {resendTimer > 0 ? `Resend OTP in ${resendTimer}s` : 'Resend OTP'}
+              </button>
+            </div>
           </div>
         )}
       </div>

@@ -1,5 +1,4 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { checkPasswordStrength } from '@/lib/crypto';
 import { verifyBiometrics } from '@/lib/webauthn';
 
 type LockMode = 'setup' | 'unlock' | 'cooldown' | 'backup-codes' | 'forgot' | 'otp-verify';
@@ -169,37 +168,7 @@ export function PasswordField({
   );
 }
 
-function PasswordStrengthMeter({ password, isLight }: { password: string, isLight: boolean }) {
-  const strength = React.useMemo(() => checkPasswordStrength(password), [password]);
-  if (!password) return null;
 
-  const getBarColor = (index: number) => {
-    if (strength === 'weak' && index === 0) return '#ef4444';
-    if (strength === 'medium' && index <= 1) return '#f59e0b';
-    if (strength === 'strong' && index <= 2) return '#10b981';
-    return isLight ? 'rgba(15, 23, 42, 0.1)' : 'rgba(255, 255, 255, 0.1)';
-  };
-
-  const getTextColor = () => {
-    if (strength === 'weak') return '#ef4444';
-    if (strength === 'medium') return '#f59e0b';
-    return '#10b981';
-  };
-
-  return (
-    <div style={{ marginTop: 8, marginBottom: 16 }}>
-      <div style={{ display: 'flex', gap: 6, height: 6 }}>
-        <div style={{ flex: 1, borderRadius: 3, background: getBarColor(0), transition: 'background 0.3s' }} />
-        <div style={{ flex: 1, borderRadius: 3, background: getBarColor(1), transition: 'background 0.3s' }} />
-        <div style={{ flex: 1, borderRadius: 3, background: getBarColor(2), transition: 'background 0.3s' }} />
-      </div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 6, fontSize: 12 }}>
-        <span style={{ color: isLight ? 'rgba(15, 23, 42, 0.45)' : 'rgba(255, 255, 255, 0.45)' }}>Password strength:</span>
-        <span style={{ color: getTextColor(), fontWeight: 500, textTransform: 'capitalize' }}>{strength}</span>
-      </div>
-    </div>
-  );
-}
 
 /** Circular countdown ring for cooldown mode */
 function CooldownRing({ remainingMs, totalMs }: { remainingMs: number; totalMs: number }) {
@@ -1136,13 +1105,12 @@ export function LockScreen({ onHide }: LockScreenProps) {
                       value={password}
                       onChange={(v) => { setPassword(v); clearError(); }}
                       onKeyEnter={handleResetPassword}
-                      placeholder="New password (min. 8 characters)"
+                      placeholder="New password (min. 6 characters)"
                       showPassword={showPassword}
                       onToggleShow={() => setShowPassword((v) => !v)}
                       autoFocus
                       styleVars={{ '--input-bg': c.inputBg, '--input-border': c.inputBorder, '--text-main': c.textMain, '--icon-color': c.iconColor }}
                     />
-                    <PasswordStrengthMeter password={password} isLight={isLight} />
                     <PasswordField
                       id="bv-confirm-new-password"
                       value={confirmPassword}

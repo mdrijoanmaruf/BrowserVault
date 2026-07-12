@@ -43,6 +43,15 @@ export function useSettings(): UseSettingsReturn {
         setIsLoading(false);
       }
     })();
+
+    const handleStorageChange = (changes: { [key: string]: chrome.storage.StorageChange }, areaName: string) => {
+      if (areaName === 'local' && changes[STORAGE_KEYS.SETTINGS]) {
+        const newVal = changes[STORAGE_KEYS.SETTINGS].newValue as Partial<UserSettings> || {};
+        setSettings(prev => ({ ...prev, ...newVal }));
+      }
+    };
+    chrome.storage.onChanged.addListener(handleStorageChange);
+    return () => chrome.storage.onChanged.removeListener(handleStorageChange);
   }, []);
 
   const updateSettings = useCallback(async (patch: Partial<UserSettings>) => {
@@ -52,6 +61,15 @@ export function useSettings(): UseSettingsReturn {
     try {
       // Write directly to storage — no SW needed
       await storageSet<UserSettings>(STORAGE_KEYS.SETTINGS, next);
+      
+      const changes = Object.keys(patch).join(', ');
+      try {
+        const { logActivity } = await import('@/lib/activityLog');
+        await logActivity('SETTINGS_CHANGE', `Updated: ${changes}`);
+      } catch (err) {
+        console.error('Failed to log activity:', err);
+      }
+
       chrome.runtime.sendMessage({ action: 'UPDATE_SETTINGS', payload: patch }, () => {
         void chrome.runtime.lastError; // consume error silently
       });

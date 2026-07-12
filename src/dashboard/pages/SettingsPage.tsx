@@ -1,15 +1,11 @@
-/**
- * SettingsPage — Days 16 & 17
- *
- * Sections:
- *  — General Behaviour (Day 16): Run in Background, Start State, Clear History on Lock
- *  — Lock Behaviour (Day 17): Max Attempts, Idle Mode, Notify Before Lock
- *  — Data (Day 16): Export Settings, Import Settings, Manual Clear History
- */
-
 import { useState, useRef } from 'react';
 import type { UserSettings } from '@/types';
 import { useSettings } from '@/hooks/useSettings';
+import { 
+  LuMonitor, LuRocket, LuTrash2, 
+  LuFingerprint, LuLock, LuBell, LuPalette,
+  LuHistory, LuDownload, LuUpload
+} from 'react-icons/lu';
 
 // ─────────────────────────────────────────────────────────────
 // Shared UI primitives
@@ -21,28 +17,36 @@ function SectionCard({ title, description, children }: {
   children: React.ReactNode;
 }) {
   return (
-    <div className="bg-white dark:bg-white/[0.03] border border-slate-200 dark:border-white/[0.07] rounded-2xl overflow-hidden mb-6 transition-colors duration-200">
-      <div className="px-6 py-5 border-b border-slate-200 dark:border-white/[0.06] transition-colors duration-200">
-        <h2 className="text-base font-semibold text-slate-900 dark:text-white">{title}</h2>
-        {description && <p className="text-sm text-slate-500 dark:text-white/40 mt-0.5">{description}</p>}
+    <div className="bg-white dark:bg-white/[0.03] border border-slate-200/80 dark:border-white/[0.07] rounded-3xl overflow-hidden mb-6 shadow-sm transition-colors duration-200">
+      <div className="px-8 py-6 border-b border-slate-100 dark:border-white/[0.06] transition-colors duration-200">
+        <h2 className="text-[17px] font-bold text-slate-900 dark:text-white">{title}</h2>
+        {description && <p className="text-[13px] text-slate-500 dark:text-white/40 mt-1 font-medium">{description}</p>}
       </div>
-      <div className="divide-y divide-slate-100 dark:divide-white/[0.05] transition-colors duration-200">
+      <div className="divide-y divide-slate-50 dark:divide-white/[0.02] transition-colors duration-200">
         {children}
       </div>
     </div>
   );
 }
 
-function SettingRow({ label, description, children }: {
+function SettingRow({ label, description, icon, children }: {
   label: string;
   description?: string;
+  icon?: React.ReactNode;
   children: React.ReactNode;
 }) {
   return (
-    <div className="flex items-center justify-between gap-6 px-6 py-4">
-      <div className="flex-1 min-w-0">
-        <p className="text-sm font-medium text-slate-900 dark:text-white/90">{label}</p>
-        {description && <p className="text-xs text-slate-500 dark:text-white/38 mt-0.5 leading-relaxed">{description}</p>}
+    <div className="flex items-center justify-between gap-6 px-8 py-5 hover:bg-slate-50/50 dark:hover:bg-white/[0.01] transition-colors">
+      <div className="flex items-center gap-4 flex-1 min-w-0">
+        {icon && (
+          <div className="w-11 h-11 bg-[#f4f1fe] dark:bg-violet-500/10 text-[#5b32f5] dark:text-violet-400 rounded-xl flex items-center justify-center flex-shrink-0 shadow-sm border border-violet-100 dark:border-violet-500/20">
+            {icon}
+          </div>
+        )}
+        <div className="flex-1 min-w-0">
+          <p className="text-[14px] font-semibold text-slate-900 dark:text-white/90">{label}</p>
+          {description && <p className="text-[12px] text-slate-500 dark:text-white/40 mt-0.5 leading-relaxed font-medium">{description}</p>}
+        </div>
       </div>
       <div className="flex-shrink-0">{children}</div>
     </div>
@@ -58,13 +62,13 @@ function Toggle({ checked, onChange, id }: { checked: boolean; onChange: (v: boo
       aria-checked={checked}
       onClick={() => onChange(!checked)}
       className={`
-        relative inline-flex h-6 w-11 items-center rounded-full transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-violet-500/40
-        ${checked ? 'bg-violet-600' : 'bg-slate-300 dark:bg-white/15'}
+        relative inline-flex h-[26px] w-[44px] items-center rounded-full transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-[#5b32f5]/40
+        ${checked ? 'bg-[#5b32f5]' : 'bg-slate-200 dark:bg-white/15'}
       `}
     >
       <span className={`
-        inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform duration-200
-        ${checked ? 'translate-x-6' : 'translate-x-1'}
+        inline-block h-5 w-5 transform rounded-full bg-white shadow-sm transition-transform duration-200
+        ${checked ? 'translate-x-[20px]' : 'translate-x-[3px]'}
       `} />
     </button>
   );
@@ -81,10 +85,10 @@ function Select({ value, onChange, options, id }: {
       id={id}
       value={value}
       onChange={(e) => onChange(e.target.value)}
-      className="bg-white dark:bg-white/[0.07] border border-slate-300 dark:border-white/15 text-slate-900 dark:text-white text-sm rounded-xl px-3 py-2 focus:outline-none focus:border-violet-400 focus:ring-1 focus:ring-violet-400 cursor-pointer transition-colors"
+      className="bg-white dark:bg-white/[0.07] border border-slate-200 dark:border-white/15 text-slate-800 dark:text-white text-[13px] font-medium rounded-xl px-4 py-2 focus:outline-none focus:border-[#5b32f5] focus:ring-1 focus:ring-[#5b32f5] cursor-pointer transition-colors shadow-sm"
     >
       {options.map((o) => (
-        <option key={o.value} value={o.value} className="bg-white dark:bg-[#1a1030] text-slate-900 dark:text-white">
+        <option key={o.value} value={o.value} className="bg-white dark:bg-[#1a1030] text-slate-900 dark:text-white font-medium">
           {o.label}
         </option>
       ))}
@@ -100,12 +104,12 @@ function NumberStepper({ value, min, max, onChange, id }: {
   id: string;
 }) {
   return (
-    <div className="flex items-center gap-2">
+    <div className="flex items-center gap-1.5 p-1 bg-slate-50 dark:bg-white/[0.03] border border-slate-200 dark:border-white/10 rounded-xl">
       <button
         type="button"
         onClick={() => onChange(Math.max(min, value - 1))}
         disabled={value <= min}
-        className="w-8 h-8 rounded-lg bg-slate-100 dark:bg-white/[0.06] border border-slate-300 dark:border-white/10 text-slate-700 dark:text-white/70 hover:bg-slate-200 dark:hover:bg-white/10 disabled:opacity-30 disabled:cursor-not-allowed flex items-center justify-center text-lg leading-none transition-colors"
+        className="w-8 h-8 rounded-lg bg-white dark:bg-white/[0.06] border border-slate-200 dark:border-white/10 text-slate-700 dark:text-white/70 hover:bg-slate-50 dark:hover:bg-white/10 disabled:opacity-30 disabled:cursor-not-allowed flex items-center justify-center text-lg leading-none transition-colors shadow-sm font-medium"
       >
         −
       </button>
@@ -119,13 +123,13 @@ function NumberStepper({ value, min, max, onChange, id }: {
           const n = parseInt(e.target.value, 10);
           if (!isNaN(n)) onChange(Math.min(max, Math.max(min, n)));
         }}
-        className="w-14 text-center bg-white dark:bg-white/[0.07] border border-slate-300 dark:border-white/15 text-slate-900 dark:text-white text-sm rounded-xl px-2 py-1.5 focus:outline-none focus:border-violet-400"
+        className="w-10 text-center bg-transparent border-none text-slate-900 dark:text-white text-[14px] font-semibold focus:outline-none focus:ring-0 p-0"
       />
       <button
         type="button"
         onClick={() => onChange(Math.min(max, value + 1))}
         disabled={value >= max}
-        className="w-8 h-8 rounded-lg bg-slate-100 dark:bg-white/[0.06] border border-slate-300 dark:border-white/10 text-slate-700 dark:text-white/70 hover:bg-slate-200 dark:hover:bg-white/10 disabled:opacity-30 disabled:cursor-not-allowed flex items-center justify-center text-lg leading-none transition-colors"
+        className="w-8 h-8 rounded-lg bg-white dark:bg-white/[0.06] border border-slate-200 dark:border-white/10 text-slate-700 dark:text-white/70 hover:bg-slate-50 dark:hover:bg-white/10 disabled:opacity-30 disabled:cursor-not-allowed flex items-center justify-center text-lg leading-none transition-colors shadow-sm font-medium"
       >
         +
       </button>
@@ -139,10 +143,10 @@ function ActionButton({ onClick, variant = 'secondary', children, id }: {
   children: React.ReactNode;
   id: string;
 }) {
-  const base = 'px-4 py-2 rounded-xl text-sm font-medium transition-all duration-150 focus:outline-none focus:ring-2 focus:ring-offset-0';
+  const base = 'px-5 py-2.5 rounded-xl text-[13px] font-semibold transition-all duration-150 focus:outline-none focus:ring-2 focus:ring-offset-0 shadow-sm';
   const variants = {
-    primary: 'bg-violet-600 hover:bg-violet-500 text-white focus:ring-violet-500/40',
-    secondary: 'bg-slate-100 dark:bg-white/[0.07] hover:bg-slate-200 dark:hover:bg-white/12 text-slate-800 dark:text-white/80 border border-slate-300 dark:border-white/10 focus:ring-slate-300 dark:focus:ring-white/20',
+    primary: 'bg-[#5b32f5] hover:bg-[#4a26d4] text-white focus:ring-[#5b32f5]/40',
+    secondary: 'bg-white dark:bg-white/[0.07] hover:bg-slate-50 dark:hover:bg-white/12 text-slate-700 dark:text-white/80 border border-slate-200 dark:border-white/10 focus:ring-slate-300 dark:focus:ring-white/20',
     danger: 'bg-red-50 dark:bg-red-500/15 hover:bg-red-100 dark:hover:bg-red-500/25 text-red-600 dark:text-red-400 border border-red-200 dark:border-red-500/20 focus:ring-red-500/30',
   };
   return (
@@ -159,15 +163,15 @@ function ActionButton({ onClick, variant = 'secondary', children, id }: {
 function Toast({ message, type }: { message: string; type: 'success' | 'error' }) {
   return (
     <div className={`
-      fixed bottom-6 right-6 z-50 flex items-center gap-3 px-4 py-3 rounded-xl shadow-2xl
-      border text-sm font-medium animate-[fadeInUp_0.3s_ease-out]
+      fixed bottom-8 right-8 z-50 flex items-center gap-3 px-5 py-3.5 rounded-2xl shadow-2xl
+      border text-[14px] font-semibold animate-[fadeInUp_0.3s_ease-out]
       ${type === 'success'
-        ? 'bg-emerald-50 dark:bg-emerald-500/15 border-emerald-200 dark:border-emerald-500/25 text-emerald-700 dark:text-emerald-300'
+        ? 'bg-[#f4f1fe] dark:bg-violet-500/15 border-violet-200 dark:border-violet-500/25 text-[#5b32f5] dark:text-violet-300'
         : 'bg-red-50 dark:bg-red-500/15 border-red-200 dark:border-red-500/25 text-red-700 dark:text-red-300'}
     `}>
       {type === 'success'
-        ? <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7"/></svg>
-        : <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12"/></svg>
+        ? <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7"/></svg>
+        : <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12"/></svg>
       }
       {message}
     </div>
@@ -244,8 +248,8 @@ export function SettingsPage() {
   if (isLoading) {
     return (
       <div className="space-y-6 animate-pulse">
-        {[1, 2, 3].map((i) => (
-          <div key={i} className="h-40 bg-white/[0.03] rounded-2xl border border-white/[0.06]" />
+        {[1, 2].map((i) => (
+          <div key={i} className="h-64 bg-white/[0.03] rounded-3xl border border-white/[0.06]" />
         ))}
       </div>
     );
@@ -253,12 +257,13 @@ export function SettingsPage() {
 
   return (
     <>
-      {/* ── General Behaviour (Day 16) ── */}
+      {/* ── General Behaviour ── */}
       <SectionCard
         title="General Behaviour"
         description="Control how BrowserVault runs and starts."
       >
         <SettingRow
+          icon={<LuMonitor className="w-[22px] h-[22px]" />}
           label="Run in Background"
           description="Keep the service worker alive. Ensures idle detection and scheduled locks work even when no tabs are focused."
         >
@@ -270,6 +275,7 @@ export function SettingsPage() {
         </SettingRow>
 
         <SettingRow
+          icon={<LuRocket className="w-[22px] h-[22px]" />}
           label="Start State"
           description="What happens when the browser starts and the lock is lifted."
         >
@@ -294,12 +300,13 @@ export function SettingsPage() {
               defaultValue={settings.customUrl ?? ''}
               onBlur={(e) => handleUpdate({ customUrl: e.target.value })}
               placeholder="https://example.com"
-              className="w-56 bg-white/[0.07] border border-white/15 text-white text-sm rounded-xl px-3 py-2 focus:outline-none focus:border-violet-400/50 placeholder-white/20"
+              className="w-56 bg-white dark:bg-white/[0.07] border border-slate-200 dark:border-white/15 text-slate-800 dark:text-white text-[13px] font-medium rounded-xl px-4 py-2 focus:outline-none focus:border-[#5b32f5] focus:ring-1 focus:ring-[#5b32f5] shadow-sm transition-colors placeholder-slate-400 dark:placeholder-white/20"
             />
           </SettingRow>
         )}
 
         <SettingRow
+          icon={<LuTrash2 className="w-[22px] h-[22px]" />}
           label="Clear History on Lock"
           description="Automatically wipe browser history every time the browser locks."
         >
@@ -311,13 +318,13 @@ export function SettingsPage() {
         </SettingRow>
       </SectionCard>
 
-      {/* ── Lock Behaviour (Days 16 & 17) ── */}
+      {/* ── Lock Behaviour ── */}
       <SectionCard
         title="Lock Behaviour"
         description="Configure idle detection, failed attempts, and notifications."
       >
-        {/* Max attempts (Day 17) */}
         <SettingRow
+          icon={<LuFingerprint className="w-[22px] h-[22px]" />}
           label="Maximum Failed Attempts"
           description="Number of wrong password attempts allowed before a cooldown is triggered."
         >
@@ -330,8 +337,8 @@ export function SettingsPage() {
           />
         </SettingRow>
 
-        {/* Idle mode toggle (Day 17) */}
         <SettingRow
+          icon={<LuLock className="w-[22px] h-[22px]" />}
           label="Idle Auto-Lock"
           description="Automatically lock the browser when the system is idle."
         >
@@ -363,8 +370,8 @@ export function SettingsPage() {
           </SettingRow>
         )}
 
-        {/* Notify before lock (Day 17) */}
         <SettingRow
+          icon={<LuBell className="w-[22px] h-[22px]" />}
           label="Notify Before Locking"
           description="Show a desktop notification 30 seconds before the browser auto-locks."
         >
@@ -375,8 +382,11 @@ export function SettingsPage() {
           />
         </SettingRow>
 
-        {/* Theme */}
-        <SettingRow label="Theme" description="Interface colour preference.">
+        <SettingRow 
+          icon={<LuPalette className="w-[22px] h-[22px]" />}
+          label="Theme" 
+          description="Interface colour preference."
+        >
           <Select
             id="select-theme"
             value={settings.theme}
@@ -390,12 +400,13 @@ export function SettingsPage() {
         </SettingRow>
       </SectionCard>
 
-      {/* ── Data (Days 16 & 20) ── */}
+      {/* ── Data ── */}
       <SectionCard
-        title="Data"
+        title="Data & Storage"
         description="Export, import, or clear your BrowserVault data."
       >
         <SettingRow
+          icon={<LuHistory className="w-[22px] h-[22px]" />}
           label="Log Retention"
           description="How long to keep activity logs before automatically deleting them."
         >
@@ -414,6 +425,7 @@ export function SettingsPage() {
         </SettingRow>
 
         <SettingRow
+          icon={<LuDownload className="w-[22px] h-[22px]" />}
           label="Export Settings"
           description="Download your settings as a JSON file (password hash excluded)."
         >
@@ -423,6 +435,7 @@ export function SettingsPage() {
         </SettingRow>
 
         <SettingRow
+          icon={<LuUpload className="w-[22px] h-[22px]" />}
           label="Import Settings"
           description="Restore settings from a previously exported JSON file."
         >
@@ -442,6 +455,7 @@ export function SettingsPage() {
         </SettingRow>
 
         <SettingRow
+          icon={<LuTrash2 className="w-[22px] h-[22px] text-red-500" />}
           label="Clear Browser History"
           description="Permanently delete all browser history right now."
         >
@@ -457,7 +471,7 @@ export function SettingsPage() {
       {/* Keyframe for toast animation */}
       <style>{`
         @keyframes fadeInUp {
-          from { opacity: 0; transform: translateY(12px); }
+          from { opacity: 0; transform: translateY(16px); }
           to   { opacity: 1; transform: translateY(0); }
         }
       `}</style>

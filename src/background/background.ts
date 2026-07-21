@@ -1,5 +1,5 @@
 import { MessageRouter } from './messageRouter';
-import { lockBrowser, unlockBrowser, getLockStatus } from './lockController';
+import { lockBrowser, unlockBrowser, getLockStatus, restoreWindows, enforceFullscreen, enforceFullscreenForWindow, isRestoringWindows } from './lockController';
 import { startIdleWatcher, stopIdleWatcher } from './idleWatcher';
 import { startDomainWatcher } from './domainWatcher';
 import {
@@ -92,6 +92,15 @@ async function initializeState(): Promise<void> {
   startScheduledLock(settings);
   setupSchedulerListener();
 
+  if (lockState?.isLocked) {
+    chrome.action.setPopup({ popup: '' });
+    // SW may have been restarted while locked — re-enforce fullscreen on all windows
+    console.log('[BrowserVault] SW restarted while locked — re-enforcing fullscreen');
+    await enforceFullscreen();
+  } else {
+    chrome.action.setPopup({ popup: 'popup.html' });
+  }
+
   await pruneActivityLog(settings.logRetentionDays);
 }
 
@@ -109,6 +118,13 @@ router.on('GET_STATE', async () => {
 
 router.on('LOCK_BROWSER', async () => {
   await lockBrowser();
+  return { success: true };
+});
+
+// Called by the lock screen UI after it unlocks directly via storage
+// (bypassing the SW). This ensures windows exit fullscreen.
+router.on('RESTORE_WINDOWS', async () => {
+  await restoreWindows();
   return { success: true };
 });
 
@@ -318,6 +334,9 @@ router.on(
             }
           });
         });
+
+        // Restore windows to their previous state
+        await restoreWindows();
       }
 
       return { success: true };
@@ -350,6 +369,9 @@ router.on('UNLOCK_WITH_BIOMETRICS', async () => {
     });
   });
 
+  // Restore windows to their previous state
+  await restoreWindows();
+
   return { success: true };
 });
 
@@ -371,8 +393,33 @@ async function isCurrentlyLocked(): Promise<boolean> {
 
 chrome.runtime.onStartup.addListener(async () => {
   console.log('[BrowserVault] onStartup fired');
-  if (!(await isCurrentlyLocked())) return;
-  await lockBrowser();
+  const locked = await isCurrentlyLocked();
+  if (locked) {
+    chrome.action.setPopup({ popup: '' });
+    await lockBrowser();
+  } else {
+    chrome.action.setPopup({ popup: 'popup.html' });
+  }
+});
+
+// Update popup dynamically when storage changes
+chrome.storage.onChanged.addListener((changes, area) => {
+  if (area === 'local' && changes[STORAGE_KEYS.LOCK_STATE]) {
+    const lockState = changes[STORAGE_KEYS.LOCK_STATE].newValue as { isLocked?: boolean } | undefined;
+    if (lockState?.isLocked) {
+      chrome.action.setPopup({ popup: '' });
+    } else {
+      chrome.action.setPopup({ popup: 'popup.html' });
+    }
+  }
+});
+
+// Handle extension icon click when popup is disabled (i.e. locked)
+chrome.action.onClicked.addListener(async (tab) => {
+  const locked = await isCurrentlyLocked();
+  if (locked && tab.id) {
+    chrome.tabs.sendMessage(tab.id, { action: 'SHOW_LOCKED_ALERT' }).catch(() => {});
+  }
 });
 
 const LOCK_PAGE_URL = chrome.runtime.getURL('lock.html');
@@ -410,6 +457,28 @@ chrome.windows.onCreated.addListener(async (window) => {
       // Ignore errors if window closes quickly
     }
   }, 100);
+
+  // Also force this new window into fullscreen while locked
+  if (window.id) {
+    setTimeout(() => {
+      enforceFullscreenForWindow(window.id!).catch(() => {});
+    }, 200);
+  }
+});
+
+// ── Fullscreen Watchdog ─────────────────────────────────────────────────────
+// If a window escapes fullscreen while locked (Escape key, F11, etc.),
+// immediately re-force it back into fullscreen.
+// IMPORTANT: Skip during restoreWindows() to avoid a race condition where
+// the watchdog re-enforces fullscreen while we are trying to exit it.
+chrome.windows.onBoundsChanged.addListener(async (window) => {
+  if (!window.id) return;
+  if (isRestoringWindows()) return; // Skip — restore in progress, don't interfere
+  if (!(await isCurrentlyLocked())) return;
+  if (window.state !== 'fullscreen') {
+    console.log(`[BrowserVault] Window ${window.id} escaped fullscreen — re-enforcing`);
+    enforceFullscreenForWindow(window.id).catch(() => {});
+  }
 });
 
 chrome.tabs.onCreated.addListener(async (tab) => {
@@ -429,6 +498,16 @@ chrome.tabs.onCreated.addListener(async (tab) => {
 chrome.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
   if (changeInfo.status !== 'loading') return;
   const url = changeInfo.url ?? tab.url ?? '';
+
+  const isLocked = await isCurrentlyLocked();
+
+  // Block access to extensions management page when locked
+  if (isLocked && (url.startsWith('chrome://extensions') || url.startsWith('edge://extensions'))) {
+    const encodedRedirect = encodeURIComponent(url);
+    const redirectUrl = `${LOCK_PAGE_URL}?redirect=${encodedRedirect}`;
+    chrome.tabs.update(tabId, { url: redirectUrl }).catch(() => {});
+    return;
+  }
 
   if (
     !url ||

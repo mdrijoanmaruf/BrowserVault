@@ -667,6 +667,8 @@ export function LockScreen({ onHide }: LockScreenProps) {
             resolve()
           );
         });
+        // Tell the Service Worker to restore windows from fullscreen
+        chrome.runtime.sendMessage({ action: 'RESTORE_WINDOWS' }).catch(() => {});
         onHide?.();
       } else {
         // Record failed attempt
@@ -763,6 +765,8 @@ export function LockScreen({ onHide }: LockScreenProps) {
       chrome.runtime.sendMessage({ action: 'GET_STATE' }, () => {
         void chrome.runtime.lastError;
       });
+      // Restore windows from fullscreen
+      chrome.runtime.sendMessage({ action: 'RESTORE_WINDOWS' }).catch(() => {});
 
       onHide?.();
     } catch (err) {
@@ -819,6 +823,8 @@ export function LockScreen({ onHide }: LockScreenProps) {
       chrome.runtime.sendMessage({ action: 'GET_STATE' }, () => {
         void chrome.runtime.lastError;
       });
+      // Restore windows from fullscreen
+      chrome.runtime.sendMessage({ action: 'RESTORE_WINDOWS' }).catch(() => {});
       onHide?.();
     } catch (err) {
       setError('Failed to reset password. Please try again.');

@@ -87,7 +87,99 @@ export async function lockBrowser(): Promise<void> {
     chrome.tabs.update(tab.id, { url: redirectUrl }).catch(() => {});
   }
 
+  await enforceFullscreen();
+
   await broadcastToAllTabs({ action: 'SHOW_LOCK_OVERLAY' });
+}
+
+const SESSION_KEY = 'bv_prev_window_states';
+
+/**
+ * Set to true while restoreWindows() is executing so the onBoundsChanged
+ * watchdog does not re-enforce fullscreen during the restore transition.
+ */
+let _isRestoringWindows = false;
+export function isRestoringWindows(): boolean {
+  return _isRestoringWindows;
+}
+
+/**
+ * Save all current window states to session storage, then force every
+ * normal window into fullscreen. String keys are used so JSON round-trips
+ * preserve them correctly.
+ */
+export async function enforceFullscreen(): Promise<void> {
+  const windows = await chrome.windows.getAll({ windowTypes: ['normal'] });
+  const savedStates: Record<string, string> = {};
+
+  for (const w of windows) {
+    if (!w.id) continue;
+    // Only record the pre-fullscreen state so we know what to restore
+    if (w.state && w.state !== 'fullscreen') {
+      savedStates[String(w.id)] = w.state;
+    }
+    chrome.windows.update(w.id, { state: 'fullscreen' }).catch(() => {});
+  }
+
+  // Persist to session storage — survives SW restarts, clears on browser close
+  await chrome.storage.session
+    .set({ [SESSION_KEY]: savedStates })
+    .catch(() => {});
+}
+
+/**
+ * Force a single window into fullscreen. Used by the watchdog listeners
+ * (onCreated, onBoundsChanged) to handle windows that open or escape
+ * fullscreen while the browser is locked.
+ */
+export async function enforceFullscreenForWindow(
+  windowId: number
+): Promise<void> {
+  chrome.windows.update(windowId, { state: 'fullscreen' }).catch(() => {});
+}
+
+/**
+ * Restore every window to the state it had before locking.
+ * Uses a two-step transition: fullscreen → normal → prevState.
+ * This is required because Chrome cannot jump directly from fullscreen
+ * to maximized — the intermediate 'normal' step is necessary.
+ *
+ * The _isRestoringWindows flag prevents the onBoundsChanged watchdog from
+ * re-enforcing fullscreen during this transition.
+ */
+export async function restoreWindows(): Promise<void> {
+  _isRestoringWindows = true;
+  try {
+    const windows = await chrome.windows.getAll({ windowTypes: ['normal'] });
+
+    // Read saved states — fall back to empty map if session was cleared
+    const sessionData = await chrome.storage.session
+      .get(SESSION_KEY)
+      .catch(() => ({} as Record<string, unknown>));
+    const savedStates: Record<string, string> =
+      (sessionData as any)[SESSION_KEY] ?? {};
+
+    for (const w of windows) {
+      if (!w.id) continue;
+      const prevState = savedStates[String(w.id)] ?? 'maximized';
+
+      // Step 1: Exit fullscreen by going to 'normal'
+      await chrome.windows.update(w.id, { state: 'normal' }).catch(() => {});
+
+      // Step 2: Apply the original state (if it wasn't already 'normal')
+      if (prevState !== 'normal') {
+        await chrome.windows
+          .update(w.id, { state: prevState as any })
+          .catch(() => {});
+      }
+    }
+
+    // Clean up session key
+    await chrome.storage.session.remove(SESSION_KEY).catch(() => {});
+  } finally {
+    // Always clear the flag, even if an error occurred
+    _isRestoringWindows = false;
+  }
 }
 
 export async function unlockBrowser(
@@ -156,6 +248,8 @@ export async function unlockBrowser(
     console.log('[BrowserVault] Browser unlocked');
 
     await broadcastToAllTabs({ action: 'HIDE_LOCK_OVERLAY' });
+
+    await restoreWindows();
 
     const currentSettings =
       (await storage.getItem<UserSettings>(STORAGE_KEYS.SETTINGS)) ??

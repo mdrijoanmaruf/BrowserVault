@@ -147,36 +147,48 @@ export function PasswordField({
   const inputRef = React.useRef<HTMLInputElement>(null);
 
   React.useEffect(() => {
-    if (autoFocus && inputRef.current) {
-      const doFocus = () => {
-        inputRef.current?.focus();
-      };
-      
-      doFocus();
-      
-      if (typeof chrome !== 'undefined' && chrome.windows) {
-        chrome.windows.getCurrent((win) => {
-          if (win && win.id) {
-            chrome.windows.update(win.id, { focused: true }, doFocus);
-          }
-        });
+    if (!autoFocus) return;
+
+    const doFocus = () => {
+      if (!inputRef.current) return;
+      inputRef.current.focus();
+      try {
+        const len = inputRef.current.value.length;
+        inputRef.current.setSelectionRange(len, len);
+      } catch {}
+    };
+
+    const onWindowFocus = () => {
+      setTimeout(doFocus, 30);
+    };
+
+    const onVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        setTimeout(doFocus, 30);
       }
-      
-      // Retry focusing across the duration of the entrance animation (0.45s)
-      const t1 = setTimeout(doFocus, 50);
-      const t2 = setTimeout(doFocus, 150);
-      const t3 = setTimeout(doFocus, 300);
-      const t4 = setTimeout(doFocus, 500);
-      const t5 = setTimeout(doFocus, 800);
-      
-      return () => {
-        clearTimeout(t1);
-        clearTimeout(t2);
-        clearTimeout(t3);
-        clearTimeout(t4);
-        clearTimeout(t5);
-      };
+    };
+
+    window.addEventListener('focus', onWindowFocus);
+    document.addEventListener('visibilitychange', onVisibilityChange);
+
+    if (typeof chrome !== 'undefined' && chrome.windows) {
+      chrome.windows.getCurrent((win) => {
+        if (win && win.id) {
+          chrome.windows.update(win.id, { focused: true }, doFocus);
+        }
+      });
     }
+
+    doFocus();
+    const timers = [50, 150, 300, 600, 1000, 1500, 2500].map((delay) =>
+      setTimeout(doFocus, delay)
+    );
+
+    return () => {
+      window.removeEventListener('focus', onWindowFocus);
+      document.removeEventListener('visibilitychange', onVisibilityChange);
+      timers.forEach(clearTimeout);
+    };
   }, [autoFocus]);
 
   return (
@@ -443,10 +455,20 @@ export function LockScreen({ onHide }: LockScreenProps) {
         if (expiresAt && Date.now() < expiresAt) {
           setCooldownExpiresAt(expiresAt);
           setCooldownRemainingMs(expiresAt - Date.now());
-          setMode('cooldown');
         }
       } catch {
         // Default to unlock mode on error
+      } finally {
+        setTimeout(() => {
+          const input = document.getElementById('bv-password') as HTMLInputElement | null;
+          if (input) {
+            input.focus();
+            try {
+              const len = input.value.length;
+              input.setSelectionRange(len, len);
+            } catch {}
+          }
+        }, 50);
       }
     })();
   }, []);

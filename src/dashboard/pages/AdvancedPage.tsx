@@ -8,13 +8,10 @@ import { useSettings } from '@/hooks/useSettings';
 import { registerBiometrics, disableBiometrics } from '@/lib/webauthn';
 import { useToast } from '@/components/ToastContext';
 import Swal from 'sweetalert2';
-import { useState } from 'react';
-import { LuX } from 'react-icons/lu';
 
 export function AdvancedPage() {
   const { settings, updateSettings } = useSettings();
   const { addToast } = useToast();
-  const [newDomain, setNewDomain] = useState('');
 
   const handleFactoryReset = async () => {
     const result = await Swal.fire({
@@ -75,20 +72,6 @@ export function AdvancedPage() {
       updateSettings({ biometricUnlockEnabled: false });
       addToast('Biometric unlock disabled.', 'info');
     }
-  };
-
-  const handleAddDomain = () => {
-    if (!newDomain.trim()) return;
-    const domains = settings.restrictedDomains || [];
-    if (!domains.includes(newDomain.trim())) {
-      updateSettings({ restrictedDomains: [...domains, newDomain.trim()] });
-    }
-    setNewDomain('');
-  };
-
-  const handleRemoveDomain = (domain: string) => {
-    const domains = settings.restrictedDomains || [];
-    updateSettings({ restrictedDomains: domains.filter((d) => d !== domain) });
   };
   return (
     <div className="space-y-6">
@@ -199,63 +182,6 @@ export function AdvancedPage() {
               />
               <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-violet-300 dark:peer-focus:ring-violet-800 rounded-full peer dark:bg-slate-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-slate-600 peer-checked:bg-violet-600"></div>
             </label>
-          </div>
-
-          {/* Domain Lock List */}
-          <div className="px-6 py-5">
-            <h3 className="text-sm font-medium text-slate-900 dark:text-white">
-              Restricted Domains
-            </h3>
-            <p className="text-xs text-slate-500 dark:text-white/40 mt-1 mb-4 leading-relaxed">
-              Always lock the browser when visiting these specific websites.
-            </p>
-            <div className="flex items-center gap-3">
-              <input
-                type="text"
-                placeholder="e.g. facebook.com"
-                value={newDomain}
-                onChange={(e) => setNewDomain(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') handleAddDomain();
-                }}
-                className="flex-1 max-w-xs bg-white dark:bg-white/[0.07] border border-slate-300 dark:border-white/15 text-slate-900 dark:text-white text-sm rounded-xl px-3 py-2 focus:outline-none focus:border-violet-400 focus:ring-1 focus:ring-violet-400 transition-colors"
-              />
-              <button
-                onClick={handleAddDomain}
-                className="bg-violet-600 hover:bg-violet-500 text-white px-4 py-2 rounded-xl text-sm font-medium transition-colors"
-              >
-                Add Domain
-              </button>
-            </div>
-
-            <div className="mt-4 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/5 rounded-lg p-3 transition-colors">
-              {!settings.restrictedDomains ||
-              settings.restrictedDomains.length === 0 ? (
-                <p className="text-xs text-slate-400 dark:text-white/30 text-center italic">
-                  No domains restricted yet.
-                </p>
-              ) : (
-                <ul className="space-y-2">
-                  {settings.restrictedDomains.map((domain) => (
-                    <li
-                      key={domain}
-                      className="flex items-center justify-between bg-white dark:bg-white/10 border border-slate-200 dark:border-white/10 rounded-md px-3 py-2"
-                    >
-                      <span className="text-sm text-slate-800 dark:text-white/90">
-                        {domain}
-                      </span>
-                      <button
-                        onClick={() => handleRemoveDomain(domain)}
-                        className="text-slate-400 hover:text-red-500 transition-colors p-1"
-                        title="Remove Domain"
-                      >
-                        <LuX size={16} />
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </div>
           </div>
 
           {/* Factory Reset */}

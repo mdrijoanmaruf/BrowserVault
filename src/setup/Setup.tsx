@@ -115,6 +115,18 @@ export function Setup() {
     }
   };
 
+  const handleBackToStep1 = async () => {
+    setSetupError('');
+    await storageSet('vault_setup_step', 1);
+    setSetupStep(1);
+  };
+
+  const handleBackToStep2 = async () => {
+    setSetupError('');
+    await storageSet('vault_setup_step', 2);
+    setSetupStep(2);
+  };
+
   const handleResendOtp = async () => {
     setSetupError('');
     setSaving(true);
@@ -414,13 +426,22 @@ export function Setup() {
               </p>
             )}
 
-            <button
-              onClick={handleStep2}
-              disabled={saving || !email}
-              className="w-full bg-[#5a8bf7] hover:bg-[#4673d4] disabled:bg-slate-300 disabled:cursor-not-allowed text-white text-[15px] font-semibold py-3.5 rounded-xl transition-all shadow-sm mt-2 flex items-center justify-center gap-2"
-            >
-              {saving ? 'Sending OTP...' : 'Send OTP & Continue'}
-            </button>
+            <div className="flex gap-3 mt-2">
+              <button
+                onClick={handleBackToStep1}
+                disabled={saving}
+                className="w-1/3 bg-slate-100 hover:bg-slate-200 text-slate-700 text-[15px] font-semibold py-3.5 rounded-xl transition-all"
+              >
+                Back
+              </button>
+              <button
+                onClick={handleStep2}
+                disabled={saving || !email}
+                className="w-2/3 bg-[#5a8bf7] hover:bg-[#4673d4] disabled:bg-slate-300 disabled:cursor-not-allowed text-white text-[15px] font-semibold py-3.5 rounded-xl transition-all shadow-sm flex items-center justify-center gap-2"
+              >
+                {saving ? 'Sending...' : 'Send OTP'}
+              </button>
+            </div>
           </div>
         )}
 
@@ -513,13 +534,22 @@ export function Setup() {
               </p>
             )}
 
-            <button
-              onClick={handleStep3}
-              disabled={saving || otp.length !== 6}
-              className="w-full bg-[#10b981] hover:bg-[#059669] disabled:bg-slate-300 disabled:cursor-not-allowed text-white text-[15px] font-semibold py-3.5 rounded-xl transition-all shadow-sm mt-4 flex items-center justify-center gap-2"
-            >
-              {saving ? 'Verifying...' : 'Complete Setup'}
-            </button>
+            <div className="flex gap-3 mt-4">
+              <button
+                onClick={handleBackToStep2}
+                disabled={saving}
+                className="w-1/3 bg-slate-100 hover:bg-slate-200 text-slate-700 text-[15px] font-semibold py-3.5 rounded-xl transition-all"
+              >
+                Back
+              </button>
+              <button
+                onClick={handleStep3}
+                disabled={saving || otp.length !== 6}
+                className="w-2/3 bg-[#10b981] hover:bg-[#059669] disabled:bg-slate-300 disabled:cursor-not-allowed text-white text-[15px] font-semibold py-3.5 rounded-xl transition-all shadow-sm flex items-center justify-center gap-2"
+              >
+                {saving ? 'Verifying...' : 'Complete'}
+              </button>
+            </div>
 
             <div className="text-center mt-3">
               <button

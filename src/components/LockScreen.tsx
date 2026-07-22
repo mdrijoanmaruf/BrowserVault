@@ -149,29 +149,32 @@ export function PasswordField({
   React.useEffect(() => {
     if (autoFocus && inputRef.current) {
       const doFocus = () => {
-        if (typeof chrome !== 'undefined' && chrome.windows) {
-          chrome.windows.getCurrent((win) => {
-            if (win && win.id) {
-              chrome.windows.update(win.id, { focused: true }, () => {
-                inputRef.current?.focus();
-              });
-            } else {
-              inputRef.current?.focus();
-            }
-          });
-        } else {
-          inputRef.current?.focus();
-        }
+        inputRef.current?.focus();
       };
       
       doFocus();
+      
+      if (typeof chrome !== 'undefined' && chrome.windows) {
+        chrome.windows.getCurrent((win) => {
+          if (win && win.id) {
+            chrome.windows.update(win.id, { focused: true }, doFocus);
+          }
+        });
+      }
+      
+      // Retry focusing across the duration of the entrance animation (0.45s)
       const t1 = setTimeout(doFocus, 50);
       const t2 = setTimeout(doFocus, 150);
       const t3 = setTimeout(doFocus, 300);
+      const t4 = setTimeout(doFocus, 500);
+      const t5 = setTimeout(doFocus, 800);
+      
       return () => {
         clearTimeout(t1);
         clearTimeout(t2);
         clearTimeout(t3);
+        clearTimeout(t4);
+        clearTimeout(t5);
       };
     }
   }, [autoFocus]);

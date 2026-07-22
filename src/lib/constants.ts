@@ -5,7 +5,7 @@ export const DEFAULT_USER_SETTINGS: UserSettings = {
   idleDurationMinutes: 15,
   maxAttempts: 5,
   notifyBeforeLock: true,
-  runInBackground: false,
+  runInBackground: true,
   startState: 'history',
   clearHistoryOnLock: false,
   theme: 'system',

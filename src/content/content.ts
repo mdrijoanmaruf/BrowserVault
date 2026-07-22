@@ -1,4 +1,3 @@
-import Swal from 'sweetalert2';
 import { showOverlay, hideOverlay } from './lockOverlay';
 
 interface RuntimeMessage {
@@ -41,11 +40,6 @@ chrome.runtime.onMessage.addListener((message: RuntimeMessage) => {
   } else if (message?.action === 'HIDE_LOCK_OVERLAY') {
     hideOverlay();
   } else if (message?.action === 'SHOW_LOCKED_ALERT') {
-    Swal.fire({
-      icon: 'warning',
-      title: 'BrowserVault is Locked',
-      text: 'You must unlock the browser before you can access the extension menu.',
-      confirmButtonColor: '#3085d6'
-    });
+    alert('BrowserVault is Locked\n\nYou must unlock the browser before you can access the extension menu.');
   }
 });

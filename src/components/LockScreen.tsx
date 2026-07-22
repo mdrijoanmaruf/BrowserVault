@@ -45,10 +45,13 @@ const KEYFRAMES = `
   .bv-blob-1     { animation: bvBlob 5s ease-in-out infinite; }
   .bv-blob-2     { animation: bvBlob 5s ease-in-out infinite 2.5s; }
   .bv-spin       { animation: bvSpin 1s linear infinite; }
-  .bv-input:focus {
-    outline: none;
+  .bv-input-container:focus-within {
     border-color: rgba(167, 139, 250, 0.55) !important;
     box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.18);
+  }
+  .bv-input::placeholder {
+    color: var(--icon-color, rgba(15, 23, 42, 0.45));
+    opacity: 0.7;
   }
   .bv-input:disabled {
     opacity: 0.4;
@@ -150,31 +153,33 @@ export function PasswordField({
           chrome.windows.getCurrent((win) => {
             if (win && win.id) {
               chrome.windows.update(win.id, { focused: true }, () => {
-                window.focus();
                 inputRef.current?.focus();
               });
             } else {
-              window.focus();
               inputRef.current?.focus();
             }
           });
         } else {
-          window.focus();
           inputRef.current?.focus();
         }
       };
       
-      // Try multiple times to grab focus from the URL bar (omnibox)
       doFocus();
-      setTimeout(doFocus, 100);
-      setTimeout(doFocus, 300);
-      setTimeout(doFocus, 600);
+      const t1 = setTimeout(doFocus, 50);
+      const t2 = setTimeout(doFocus, 150);
+      const t3 = setTimeout(doFocus, 300);
+      return () => {
+        clearTimeout(t1);
+        clearTimeout(t2);
+        clearTimeout(t3);
+      };
     }
   }, [autoFocus]);
 
   return (
     <div style={{ marginBottom: 16, ...styleVars }}>
       <div
+        className="bv-input-container"
         style={{
           display: 'flex',
           alignItems: 'center',
@@ -208,6 +213,7 @@ export function PasswordField({
 
         <input
           ref={inputRef}
+          className="bv-input"
           id={id}
           type={showPassword ? 'text' : 'password'}
           value={value}
@@ -868,11 +874,32 @@ export function LockScreen({ onHide }: LockScreenProps) {
 
   const submitHandler = mode === 'setup' ? handleSetup : handleUnlock;
 
+  const toggleTheme = useCallback(async () => {
+    const newTheme = theme === 'dark' ? 'light' : 'dark';
+    setTheme(newTheme);
+    const result = await new Promise<any>((resolve) => {
+      chrome.storage.local.get(['vault_settings'], (r) => resolve(r));
+    });
+    const currentSettings = result.vault_settings || {};
+    await directStorageSet({
+      vault_settings: { ...currentSettings, theme: newTheme }
+    });
+    try {
+      chrome.runtime.sendMessage({ action: 'UPDATE_SETTINGS', payload: { theme: newTheme } }).catch(() => {});
+    } catch {}
+  }, [theme]);
+
+  const handleCloseBrowser = useCallback(() => {
+    try {
+      chrome.runtime.sendMessage({ action: 'CLOSE_CURRENT_TAB' }).catch(() => {});
+    } catch {}
+    window.close();
+  }, []);
+
   const isLight = theme === 'light';
-  const c = {
+  const c = isLight ? {
     bg: 'linear-gradient(135deg, #f0f4fd 0%, #ffffff 100%)',
-    bgCooldown:
-      'linear-gradient(145deg, #fef2f2 0%, #fee2e2 45%, #fef2f2 100%)',
+    bgCooldown: 'linear-gradient(145deg, #fef2f2 0%, #fee2e2 45%, #fef2f2 100%)',
     textMain: '#0f172a',
     textMuted: '#64748b',
     textSubtle: '#94a3b8',
@@ -881,6 +908,23 @@ export function LockScreen({ onHide }: LockScreenProps) {
     inputBg: '#fafafa',
     inputBorder: 'rgba(15, 23, 42, 0.1)',
     iconColor: '#94a3b8',
+    clockMain: '#0f172a',
+    clockSec: '#5a8bf7',
+    dots: '#94a3b8'
+  } : {
+    bg: 'linear-gradient(135deg, #0d0b1e 0%, #151136 100%)',
+    bgCooldown: 'linear-gradient(145deg, #2a0b12 0%, #3e121a 45%, #2a0b12 100%)',
+    textMain: '#ffffff',
+    textMuted: '#94a3b8',
+    textSubtle: '#64748b',
+    glassBg: 'rgba(255, 255, 255, 0.03)',
+    glassBorder: 'rgba(255, 255, 255, 0.08)',
+    inputBg: 'rgba(255, 255, 255, 0.05)',
+    inputBorder: 'rgba(255, 255, 255, 0.1)',
+    iconColor: '#94a3b8',
+    clockMain: '#ffffff',
+    clockSec: '#5a8bf7',
+    dots: 'rgba(255,255,255,0.2)'
   };
 
   return (
@@ -899,8 +943,88 @@ export function LockScreen({ onHide }: LockScreenProps) {
             "'Inter', system-ui, -apple-system, BlinkMacSystemFont, sans-serif",
           overflow: 'hidden',
           background: mode === 'cooldown' ? c.bgCooldown : c.bg,
+          color: c.textMain,
+          transition: 'background 0.3s, color 0.3s'
         }}
       >
+        {/* Top Right Controls */}
+        <div
+          style={{
+            position: 'absolute',
+            top: 24,
+            right: 24,
+            zIndex: 10,
+            display: 'flex',
+            gap: 12,
+          }}
+        >
+          {/* Theme Toggle */}
+          <button
+            onClick={toggleTheme}
+            style={{
+              width: 40,
+              height: 40,
+              borderRadius: 12,
+              background: c.glassBg,
+              border: `1px solid ${c.glassBorder}`,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              color: c.textMuted,
+              cursor: 'pointer',
+              transition: 'all 0.2s',
+            }}
+            title="Toggle Theme"
+            onMouseEnter={(e) => {
+              e.currentTarget.style.color = c.textMain;
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.color = c.textMuted;
+            }}
+          >
+            {isLight ? (
+              <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
+              </svg>
+            ) : (
+              <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
+              </svg>
+            )}
+          </button>
+
+          {/* Close Browser/Tab */}
+          <button
+            onClick={handleCloseBrowser}
+            style={{
+              width: 40,
+              height: 40,
+              borderRadius: 12,
+              background: 'rgba(239, 68, 68, 0.08)',
+              border: '1px solid rgba(239, 68, 68, 0.2)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              color: '#ef4444',
+              cursor: 'pointer',
+              transition: 'all 0.2s',
+            }}
+            title="Close Tab"
+            onMouseEnter={(e) => {
+              e.currentTarget.style.background = 'rgba(239, 68, 68, 0.15)';
+              e.currentTarget.style.borderColor = 'rgba(239, 68, 68, 0.4)';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.background = 'rgba(239, 68, 68, 0.08)';
+              e.currentTarget.style.borderColor = 'rgba(239, 68, 68, 0.2)';
+            }}
+          >
+            <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+
         {/* Subtle dot patterns in background */}
         <div
           style={{
@@ -910,7 +1034,7 @@ export function LockScreen({ onHide }: LockScreenProps) {
             right: 0,
             bottom: 0,
             opacity: 0.4,
-            backgroundImage: 'radial-gradient(#94a3b8 1px, transparent 0)',
+            backgroundImage: `radial-gradient(${c.dots} 1px, transparent 0)`,
             backgroundSize: '24px 24px',
             pointerEvents: 'none',
           }}
@@ -966,7 +1090,7 @@ export function LockScreen({ onHide }: LockScreenProps) {
                 style={{
                   fontSize: 72,
                   fontWeight: 300,
-                  color: '#0f172a',
+                  color: c.clockMain,
                   letterSpacing: '-2px',
                   lineHeight: 1,
                 }}
@@ -977,7 +1101,7 @@ export function LockScreen({ onHide }: LockScreenProps) {
                 style={{
                   fontSize: 32,
                   fontWeight: 300,
-                  color: '#5a8bf7',
+                  color: c.clockSec,
                   marginLeft: 8,
                   letterSpacing: '-1px',
                 }}
@@ -987,7 +1111,7 @@ export function LockScreen({ onHide }: LockScreenProps) {
             </div>
             <div
               style={{
-                color: '#64748b',
+                color: c.textMuted,
                 fontSize: 14,
                 marginTop: 12,
                 fontWeight: 400,
@@ -1005,8 +1129,9 @@ export function LockScreen({ onHide }: LockScreenProps) {
               border: `1px solid ${c.glassBorder}`,
               borderRadius: 24,
               padding: 32,
-              boxShadow:
-                '0 24px 48px -12px rgba(90, 139, 247, 0.15), 0 0 0 1px rgba(255,255,255,0.8) inset',
+              boxShadow: isLight
+                ? '0 24px 48px -12px rgba(90, 139, 247, 0.15), 0 0 0 1px rgba(255,255,255,0.8) inset'
+                : '0 24px 48px -12px rgba(0,0,0,0.5), 0 0 0 1px rgba(255,255,255,0.05) inset',
             }}
           >
             {/* Logo */}
@@ -1022,8 +1147,9 @@ export function LockScreen({ onHide }: LockScreenProps) {
                   width: 72,
                   height: 72,
                   borderRadius: '50%',
-                  background:
-                    'linear-gradient(135deg, #eff4ff 0%, #e0ebff 100%)',
+                  background: isLight
+                    ? 'linear-gradient(135deg, #eff4ff 0%, #e0ebff 100%)'
+                    : 'linear-gradient(135deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0.01) 100%)',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',

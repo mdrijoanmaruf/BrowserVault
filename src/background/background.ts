@@ -128,6 +128,18 @@ router.on('RESTORE_WINDOWS', async () => {
   return { success: true };
 });
 
+router.on('CLOSE_CURRENT_TAB', async () => {
+  try {
+    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+    if (tab?.id) {
+      await chrome.tabs.remove(tab.id);
+    }
+  } catch (e) {
+    console.error('Failed to close tab:', e);
+  }
+  return { success: true };
+});
+
 router.on('UNLOCK_BROWSER', async (payload: { password?: string }) => {
   const password = payload?.password ?? '';
   const settings =

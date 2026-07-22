@@ -75,6 +75,7 @@ export async function lockBrowser(): Promise<void> {
   for (const tab of tabs) {
     if (!tab.id) continue;
     const url = tab.url ?? tab.pendingUrl ?? '';
+    if (!url) continue; // Let onUpdated catch it to preserve external link navigations
 
     // Don't redirect tabs that are already on the lock page
     if (url.startsWith(LOCK_PAGE_URL)) continue;

@@ -457,6 +457,7 @@ chrome.windows.onCreated.addListener(async (window) => {
       for (const tab of tabs) {
         if (!tab.id) continue;
         const url = tab.url ?? tab.pendingUrl ?? '';
+        if (!url) continue; // Wait for onUpdated to catch the actual URL
         if (url.startsWith(LOCK_PAGE_URL)) continue;
 
         const encodedRedirect = url ? encodeURIComponent(url) : '';
@@ -498,6 +499,7 @@ chrome.tabs.onCreated.addListener(async (tab) => {
   if (!(await isCurrentlyLocked())) return;
 
   const url = tab.url ?? tab.pendingUrl ?? '';
+  if (!url) return; // Wait for onUpdated to catch the real URL to avoid race conditions
   if (url.startsWith(LOCK_PAGE_URL)) return;
 
   const encodedRedirect = url ? encodeURIComponent(url) : '';
@@ -521,12 +523,7 @@ chrome.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
     return;
   }
 
-  if (
-    !url ||
-    url.startsWith('chrome-extension://') ||
-    url.startsWith('chrome://')
-  )
-    return;
+  if (!url || url.startsWith('chrome-extension://')) return;
   if (url.startsWith(LOCK_PAGE_URL)) return;
 
   if (!(await isCurrentlyLocked())) return;
